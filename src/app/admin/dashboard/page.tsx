@@ -51,6 +51,55 @@ function PenaltyTimer({ until }: { until: string | null }) {
   );
 }
 
+interface TeamPenaltyDialogProps {
+  team: { id: string; teamName: string };
+  onApply: (teamId: string, mins: number) => void;
+}
+
+function TeamPenaltyDialog({ team, onApply }: TeamPenaltyDialogProps) {
+  const [mins, setMins] = useState('60');
+  const [open, setOpen] = useState(false);
+
+  const handleApply = () => {
+    onApply(team.id, parseInt(mins));
+    setOpen(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm" className="h-8 bg-destructive/10 border-destructive/20 text-destructive hover:bg-destructive/20 text-[10px] font-bold uppercase tracking-widest">
+          Set Penalty
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="bg-card border-white/5 text-white">
+        <DialogHeader>
+          <DialogTitle className="text-xl font-headline tracking-tight flex items-center gap-2">
+            <Clock className="w-5 h-5 text-destructive" /> Time Lockout
+          </DialogTitle>
+        </DialogHeader>
+        <div className="py-4 space-y-4">
+          <p className="text-sm text-muted-foreground">Select duration for <span className="text-white font-bold">{team.teamName}</span> terminal lockout.</p>
+          <div className="space-y-2">
+            <label className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Duration (Minutes)</label>
+            <Input 
+              type="number" 
+              value={mins} 
+              onChange={(e) => setMins(e.target.value)}
+              className="bg-background border-white/5 text-white"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="destructive" onClick={handleApply} className="w-full font-bold uppercase tracking-widest">
+            Apply Protocol Lockout
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function AdminDashboard() {
   const { auth, loading: authLoading } = useAuth();
   const { teams, levels, isReady, refresh } = useLocalStore();
@@ -58,7 +107,6 @@ export default function AdminDashboard() {
   const [isMounted, setIsMounted] = useState(false);
   const [hintText, setHintText] = useState('');
   const [selectedLevelId, setSelectedLevelId] = useState('');
-  const [penaltyMinutes, setPenaltyMinutes] = useState('45');
   const [globalFlags, setGlobalFlags] = useState<TeamFlag[]>([]);
   const [hintRequests, setHintRequests] = useState<any[]>([]);
 
@@ -94,8 +142,7 @@ export default function AdminDashboard() {
     refresh();
   };
 
-  const handleApplyPenalty = (teamId: string) => {
-    const mins = parseInt(penaltyMinutes);
+  const handleApplyPenalty = (teamId: string, mins: number) => {
     if (isNaN(mins)) return;
     localApi.applyPenalty(teamId, mins);
     refresh();
@@ -222,37 +269,7 @@ export default function AdminDashboard() {
                   </div>
                 </div>
                 
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button variant="outline" size="sm" className="h-8 bg-destructive/10 border-destructive/20 text-destructive hover:bg-destructive/20 text-[10px] font-bold uppercase tracking-widest">
-                      Set Penalty
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="bg-card border-white/5 text-white">
-                    <DialogHeader>
-                      <DialogTitle className="text-xl font-headline tracking-tight flex items-center gap-2">
-                        <Clock className="w-5 h-5 text-destructive" /> Time Lockout
-                      </DialogTitle>
-                    </DialogHeader>
-                    <div className="py-4 space-y-4">
-                      <p className="text-sm text-muted-foreground">Select duration for <span className="text-white font-bold">{team.teamName}</span> terminal lockout.</p>
-                      <div className="space-y-2">
-                        <label className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Duration (Minutes)</label>
-                        <Input 
-                          type="number" 
-                          value={penaltyMinutes} 
-                          onChange={(e) => setPenaltyMinutes(e.target.value)}
-                          className="bg-background border-white/5 text-white"
-                        />
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button variant="destructive" onClick={() => handleApplyPenalty(team.id)} className="w-full font-bold uppercase tracking-widest">
-                        Apply Protocol Lockout
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
+                <TeamPenaltyDialog team={team} onApply={handleApplyPenalty} />
               </div>
             ))}
             {flaggedTeams.length === 0 && (

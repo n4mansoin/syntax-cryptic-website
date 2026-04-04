@@ -46,18 +46,20 @@ export default function HuntPage() {
       return;
     }
 
-    const interval = setInterval(() => {
+    const checkPenalty = () => {
       const distance = new Date(teamData.penaltyUntil!).getTime() - new Date().getTime();
       if (distance <= 0) {
         setPenaltyTimeLeft(null);
         refresh();
-        clearInterval(interval);
       } else {
         const m = Math.floor(distance / 60000);
         const s = Math.floor((distance % 60000) / 1000);
         setPenaltyTimeLeft(`${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`);
       }
-    }, 1000);
+    };
+
+    checkPenalty();
+    const interval = setInterval(checkPenalty, 1000);
 
     return () => clearInterval(interval);
   }, [teamData?.penaltyUntil, refresh]);
@@ -100,12 +102,20 @@ export default function HuntPage() {
       setAnswer('');
       refresh();
     } else {
-      toast({ 
-        variant: "destructive", 
-        title: "Access Denied", 
-        description: result.message 
-      });
-      refresh(); // Sync potential penalty update
+      if (result.flagged) {
+        toast({ 
+          variant: "destructive", 
+          title: "Protocol Violation", 
+          description: "Transmission frequency too high. Terminal has been flagged." 
+        });
+      } else {
+        toast({ 
+          variant: "destructive", 
+          title: "Access Denied", 
+          description: result.message 
+        });
+      }
+      refresh(); // Sync potential penalty/flag update
     }
     setSubmitting(false);
   };

@@ -63,6 +63,8 @@ class LocalApiService {
   private saveStore(key: string, data: any) {
     if (typeof window === 'undefined') return;
     localStorage.setItem(key, JSON.stringify(data));
+    // Dispatch a storage event to help other components on the same page sync
+    window.dispatchEvent(new Event('storage'));
   }
 
   async loginTeam(teamName: string, password: string): Promise<Team | null> {
@@ -80,7 +82,7 @@ class LocalApiService {
     return safeTeam as Team;
   }
 
-  async submitAnswer(teamId: string, levelId: string, userInput: string): Promise<{ success: boolean; message: string }> {
+  async submitAnswer(teamId: string, levelId: string, userInput: string): Promise<{ success: boolean; message: string; flagged?: boolean }> {
     const teams = this.getStore<Team[]>(STORAGE_KEYS.TEAMS, []);
     const teamIndex = teams.findIndex(t => t.id === teamId);
     if (teamIndex === -1) return { success: false, message: "Team not found." };
@@ -102,8 +104,8 @@ class LocalApiService {
     const recentAttempts = attempts.filter(a => a.teamId === teamId && new Date(a.timestamp) > oneMinuteAgo);
 
     if (recentAttempts.length >= ATTEMPT_LIMIT_PER_MINUTE) {
-      this.flagTeam(teamId, "Rate limit breach");
-      return { success: false, message: "Decryption rate too high. Caution advised." };
+      this.flagTeam(teamId, "Rate limit breach (>5/min)");
+      return { success: false, message: "Decryption rate too high. Caution advised.", flagged: true };
     }
 
     // 3. Hash and Compare
@@ -181,9 +183,10 @@ class LocalApiService {
       const team = teams[teamIndex];
       team.flagCount += 1;
       
+      // Apply 60 minute penalty if 3rd flag reached
       if (team.flagCount >= FLAGS_UNTIL_PENALTY) {
         team.penaltyUntil = new Date(now.getTime() + PENALTY_DURATION_MINUTES * 60000).toISOString();
-        team.flagCount = 0;
+        team.flagCount = 0; // Reset after penalty applied
       }
       
       teams[teamIndex] = team;
