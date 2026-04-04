@@ -190,8 +190,19 @@ class LocalApiService {
     if (!localStorage.getItem(STORAGE_KEYS.LEVELS)) {
       this.saveStore(STORAGE_KEYS.LEVELS, initialLevels);
     }
-    if (!localStorage.getItem(STORAGE_KEYS.TEAMS)) {
-      this.saveStore(STORAGE_KEYS.TEAMS, initialTeams);
+    // Always ensure the test team exists
+    const existingTeams = this.getStore<Team[]>(STORAGE_KEYS.TEAMS, []);
+    if (!existingTeams.some(t => t.teamName === 'test123')) {
+      existingTeams.push({
+        id: 'team-test123',
+        teamName: 'test123',
+        password: 'testing',
+        currentLevel: 1,
+        flagCount: 0,
+        penaltyUntil: null,
+        lastSolvedAt: null
+      });
+      this.saveStore(STORAGE_KEYS.TEAMS, existingTeams);
     }
   }
 }

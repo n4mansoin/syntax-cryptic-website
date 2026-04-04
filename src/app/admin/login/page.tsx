@@ -33,7 +33,6 @@ export default function AdminLoginPage() {
     if (adminName === 'admin' && password === 'qawsedrftg') {
       loginAdmin('admin-root');
       toast({ title: "Access Granted", description: "Welcome back, Administrator." });
-      // Navigation is handled by the useEffect
     } else {
       toast({ 
         variant: "destructive", 

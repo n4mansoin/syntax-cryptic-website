@@ -17,18 +17,29 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const { loginTeam, auth, loading: authLoading } = useAuth();
+  const { loginTeam, loginAdmin, auth, loading: authLoading } = useAuth();
   const { toast } = useToast();
 
   useEffect(() => {
     if (!authLoading && auth.teamId) {
       router.push('/hunt');
     }
+    if (!authLoading && auth.adminId) {
+      router.push('/admin/dashboard');
+    }
   }, [auth, authLoading, router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+
+    // Unified login: Check for admin credentials first
+    if (teamName === 'admin' && password === 'qawsedrftg') {
+      loginAdmin('admin-root');
+      toast({ title: "Admin Access Granted", description: "Relaying to control center." });
+      setLoading(false);
+      return;
+    }
 
     const team = await localApi.loginTeam(teamName, password);
 
@@ -57,7 +68,7 @@ export default function LoginPage() {
             <div className="mx-auto w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
               <Terminal className="w-6 h-6 text-primary" />
             </div>
-            <CardTitle className="text-3xl font-headline font-bold tracking-tight text-white">Team Portal</CardTitle>
+            <CardTitle className="text-3xl font-headline font-bold tracking-tight text-white">Identity Verification</CardTitle>
             <CardDescription className="text-muted-foreground font-mono text-[10px] uppercase">Awaiting Terminal Credentials</CardDescription>
           </CardHeader>
           <CardContent>
