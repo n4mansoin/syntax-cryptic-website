@@ -67,7 +67,14 @@ class LocalApiService {
 
   async loginTeam(teamName: string, password: string): Promise<Team | null> {
     const teams = this.getStore<Team[]>(STORAGE_KEYS.TEAMS, []);
-    const team = teams.find(t => t.teamName === teamName && t.password === password);
+    const normalizedName = teamName.trim();
+    const normalizedPass = password.trim();
+    
+    const team = teams.find(t => 
+      t.teamName.toLowerCase() === normalizedName.toLowerCase() && 
+      t.password === normalizedPass
+    );
+    
     if (!team) return null;
     const { password: _, ...safeTeam } = team;
     return safeTeam as Team;
@@ -187,18 +194,27 @@ class LocalApiService {
   }
 
   initializeData(initialLevels: Level[], initialTeams: Team[]) {
+    // 1. Levels Sync
     if (!localStorage.getItem(STORAGE_KEYS.LEVELS)) {
       this.saveStore(STORAGE_KEYS.LEVELS, initialLevels);
     }
     
-    // Ensure all initial teams exist in the local store
+    // 2. Teams Sync
     const existingTeams = this.getStore<Team[]>(STORAGE_KEYS.TEAMS, []);
     let modified = false;
 
     initialTeams.forEach(initialTeam => {
-      if (!existingTeams.some(t => t.teamName === initialTeam.teamName)) {
+      const index = existingTeams.findIndex(t => t.teamName === initialTeam.teamName);
+      if (index === -1) {
+        // Add missing team
         existingTeams.push(initialTeam);
         modified = true;
+      } else {
+        // Ensure password is up to date for test accounts
+        if (existingTeams[index].password !== initialTeam.password) {
+          existingTeams[index].password = initialTeam.password;
+          modified = true;
+        }
       }
     });
 
