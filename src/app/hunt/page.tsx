@@ -77,6 +77,11 @@ export default function HuntPage() {
 
   if (loading || !auth.teamId) return null;
 
+  // Progress formula: (solved levels / total levels) * 100
+  // Start of Level 1 (0 solved) = 0%
+  // Start of Level 2 (1 solved) = 20%
+  const progressPercentage = Math.round(((currentLevel - 1) / levels.length) * 100);
+
   return (
     <div className="min-h-screen bg-background flex flex-col p-6 pt-24 items-center">
       <Navbar />
@@ -97,10 +102,10 @@ export default function HuntPage() {
           </div>
           <div className="flex flex-col items-end gap-2 min-w-[200px]">
             <div className="flex justify-between w-full text-[10px] uppercase font-mono tracking-widest text-primary">
-              <span>Level Progress</span>
-              <span>{currentLevel} / {levels.length}</span>
+              <span>Progress</span>
+              <span>{progressPercentage}%</span>
             </div>
-            <Progress value={(currentLevel / levels.length) * 100} className="h-1.5 bg-white/5" />
+            <Progress value={progressPercentage} className="h-1.5 bg-white/5" />
           </div>
         </div>
 
