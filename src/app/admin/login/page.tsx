@@ -23,8 +23,10 @@ export default function AdminLoginPage() {
   const handleInitialLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    // Simulate administrative verification
     setTimeout(() => {
-      if (password === 'admin123') { // Mock admin pass
+      // Updated admin password
+      if (password === 'qwertyhbvcdfgh') {
         loginAdmin('admin-root');
         setStep(2);
       } else {
@@ -38,7 +40,8 @@ export default function AdminLoginPage() {
     e.preventDefault();
     setLoading(true);
     setTimeout(() => {
-      if (totp === '123456') { // Mock TOTP
+      // Mock TOTP for demo purposes
+      if (totp === '123456') {
         verify2FA();
         toast({ title: "Authorized", description: "Identity verified. Redirecting to secure dashboard." });
         router.push('/admin/dashboard');

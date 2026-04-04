@@ -25,13 +25,15 @@ export default function LoginPage() {
     
     // Simulate API delay and validation
     setTimeout(() => {
-      if (teamName === 'admin') {
+      // Redirect to admin portal if 'admins' is entered as team name
+      if (teamName === 'admins') {
         toast({ title: "Admin login detected", description: "Redirecting to admin authentication..." });
         router.push('/admin/login');
         return;
       }
 
-      if (teamName && password.length >= 6) {
+      // Updated team credentials
+      if (teamName === 'test123' && password === 'testing') {
         loginTeam('team-1', teamName);
         toast({ title: "Welcome back", description: `Team ${teamName} authenticated successfully.` });
         router.push('/hunt');
