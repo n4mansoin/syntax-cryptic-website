@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
-import { Terminal, Send, Timer, HelpCircle, Lightbulb, CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
+import { Terminal, Send, Timer, HelpCircle, Lightbulb, CheckCircle2, Loader2, AlertCircle, ShieldAlert } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth-store';
 import { useLocalStore } from '@/lib/local-store';
@@ -23,6 +23,7 @@ export default function HuntPage() {
   const [levelTimer, setLevelTimer] = useState(0);
   const [isMounted, setIsMounted] = useState(false);
   const [releasedHints, setReleasedHints] = useState<Hint[]>([]);
+  const [penaltyTimeLeft, setPenaltyTimeLeft] = useState<string | null>(null);
 
   useEffect(() => {
     setIsMounted(true);
@@ -38,18 +39,41 @@ export default function HuntPage() {
   const currentLevelNumber = teamData?.currentLevel || 1;
   const currentLevel = levels.find(l => l.order === currentLevelNumber);
   
+  // Penalty Countdown Effect
+  useEffect(() => {
+    if (!teamData?.penaltyUntil) {
+      setPenaltyTimeLeft(null);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      const distance = new Date(teamData.penaltyUntil!).getTime() - new Date().getTime();
+      if (distance <= 0) {
+        setPenaltyTimeLeft(null);
+        refresh();
+        clearInterval(interval);
+      } else {
+        const m = Math.floor(distance / 60000);
+        const s = Math.floor((distance % 60000) / 1000);
+        setPenaltyTimeLeft(`${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [teamData?.penaltyUntil, refresh]);
+
   useEffect(() => {
     if (currentLevel) {
       setReleasedHints(localApi.getHints(currentLevel.id));
     }
-  }, [currentLevel, teams]); // Refresh hints when team data changes
+  }, [currentLevel, teams]);
 
   useEffect(() => {
-    if (isMounted && auth.teamId && isReady) {
+    if (isMounted && auth.teamId && isReady && !penaltyTimeLeft) {
       const timer = setInterval(() => setLevelTimer(prev => prev + 1), 1000);
       return () => clearInterval(timer);
     }
-  }, [auth, isReady, isMounted]);
+  }, [auth, isReady, isMounted, penaltyTimeLeft]);
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -66,7 +90,7 @@ export default function HuntPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!answer.trim() || !auth.teamId || !currentLevel) return;
+    if (!answer.trim() || !auth.teamId || !currentLevel || penaltyTimeLeft) return;
     setSubmitting(true);
 
     const result = await localApi.submitAnswer(auth.teamId, currentLevel.id, answer);
@@ -81,6 +105,7 @@ export default function HuntPage() {
         title: "Access Denied", 
         description: result.message 
       });
+      refresh(); // Sync potential penalty update
     }
     setSubmitting(false);
   };
@@ -98,7 +123,7 @@ export default function HuntPage() {
   const progressPercentage = Math.max(0, Math.min(100, (currentLevelNumber - 1) * 20));
 
   return (
-    <div className="min-h-screen bg-background flex flex-col p-6 pt-24 items-center">
+    <div className="min-h-screen bg-background flex flex-col p-6 pt-24 items-center relative">
       <Navbar />
 
       <div className="w-full max-w-4xl space-y-8 animate-fade-in">
@@ -126,7 +151,22 @@ export default function HuntPage() {
         </div>
 
         <div className="flex flex-col items-center space-y-12 py-12">
-          {currentLevelNumber > 5 ? (
+          {penaltyTimeLeft ? (
+            <div className="flex flex-col items-center gap-8 py-12 animate-fade-in text-center max-w-md">
+              <div className="relative">
+                <ShieldAlert className="w-24 h-24 text-destructive animate-pulse" />
+                <div className="absolute inset-0 bg-destructive/20 blur-2xl rounded-full" />
+              </div>
+              <div className="space-y-4">
+                <h3 className="text-3xl font-headline font-bold uppercase tracking-tighter text-white">System Lockout</h3>
+                <p className="text-sm text-muted-foreground font-mono">Terminal signal suppressed due to protocol violations. Recalibrating downlink...</p>
+                <div className="p-6 bg-destructive/10 border border-destructive/20 rounded-2xl">
+                  <span className="text-5xl font-mono font-bold text-destructive tracking-widest">{penaltyTimeLeft}</span>
+                  <p className="text-[10px] uppercase tracking-widest text-destructive/60 mt-2">Time Until Restoration</p>
+                </div>
+              </div>
+            </div>
+          ) : currentLevelNumber > 5 ? (
             <div className="flex flex-col items-center gap-6 py-12">
               <CheckCircle2 className="w-20 h-20 text-primary" />
               <h3 className="text-4xl font-headline font-bold uppercase tracking-tighter">Signal Decrypted</h3>
@@ -158,8 +198,9 @@ export default function HuntPage() {
                   onChange={(e) => setAnswer(e.target.value)}
                   placeholder="INPUT DECRYPTION KEY"
                   className="h-16 text-xl text-center bg-card border-white/5 focus:border-primary font-mono uppercase tracking-[0.3em] rounded-xl text-white"
+                  disabled={penaltyTimeLeft !== null}
                 />
-                <Button disabled={submitting} type="submit" className="w-full h-14 text-lg font-bold bg-primary hover:bg-primary/90 transition-all rounded-xl group text-white">
+                <Button disabled={submitting || !!penaltyTimeLeft} type="submit" className="w-full h-14 text-lg font-bold bg-primary hover:bg-primary/90 transition-all rounded-xl group text-white">
                   {submitting ? "VERIFYING..." : "EXECUTE SUBMISSION"}
                   {!submitting && <Send className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />}
                 </Button>

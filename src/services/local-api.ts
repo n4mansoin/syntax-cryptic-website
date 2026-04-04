@@ -1,7 +1,7 @@
 'use client';
 
 import { sha256, normalizeAnswer } from '@/utils/hash';
-import { SECRET_KEY, ATTEMPT_LIMIT_PER_MINUTE, PENALTY_DURATION_MINUTES, FLAGS_UNTIL_PENALTY } from '@/utils/constants';
+import { SECRET_KEY, ATTEMPT_LIMIT_PER_MINUTE, FLAGS_UNTIL_PENALTY, PENALTY_DURATION_MINUTES } from '@/utils/constants';
 
 // Internal types
 export interface Team {
@@ -92,7 +92,7 @@ class LocalApiService {
     if (team.penaltyUntil && new Date(team.penaltyUntil) > now) {
       return { 
         success: false, 
-        message: `System lockout active. Try again after ${new Date(team.penaltyUntil).toLocaleTimeString()}.` 
+        message: `System lockout active. Decryption disabled.` 
       };
     }
 
@@ -191,11 +191,11 @@ class LocalApiService {
     }
   }
 
-  applyPenalty(teamId: string) {
+  applyPenalty(teamId: string, durationMinutes: number = 45) {
     const teams = this.getStore<Team[]>(STORAGE_KEYS.TEAMS, []);
     const teamIndex = teams.findIndex(t => t.id === teamId);
     if (teamIndex !== -1) {
-      teams[teamIndex].penaltyUntil = new Date(Date.now() + PENALTY_DURATION_MINUTES * 60000).toISOString();
+      teams[teamIndex].penaltyUntil = new Date(Date.now() + durationMinutes * 60000).toISOString();
       this.saveStore(STORAGE_KEYS.TEAMS, teams);
     }
   }

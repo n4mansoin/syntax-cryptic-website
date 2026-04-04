@@ -8,12 +8,48 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { 
-  BarChart3, Lightbulb, Loader2, Plus, ShieldAlert, AlertTriangle, Activity, Flag, MousePointer2
+  BarChart3, Lightbulb, Loader2, Plus, Flag, Activity, MousePointer2, Timer, Clock
 } from 'lucide-react';
 import { useLocalStore } from '@/lib/local-store';
 import { Input } from '@/components/ui/input';
 import { localApi, Flag as TeamFlag } from '@/services/local-api';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+
+function PenaltyTimer({ until }: { until: string | null }) {
+  const [timeLeft, setTimeLeft] = useState<string>('');
+
+  useEffect(() => {
+    if (!until) return;
+    const interval = setInterval(() => {
+      const distance = new Date(until).getTime() - new Date().getTime();
+      if (distance <= 0) {
+        setTimeLeft('EXPIRED');
+        clearInterval(interval);
+      } else {
+        const m = Math.floor(distance / 60000);
+        const s = Math.floor((distance % 60000) / 1000);
+        setTimeLeft(`${m}m ${s}s`);
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [until]);
+
+  if (!until || timeLeft === 'EXPIRED') return null;
+
+  return (
+    <div className="flex items-center gap-1.5 text-[10px] font-mono text-destructive animate-pulse">
+      <Timer className="w-3 h-3" /> {timeLeft}
+    </div>
+  );
+}
 
 export default function AdminDashboard() {
   const { auth, loading: authLoading } = useAuth();
@@ -22,6 +58,7 @@ export default function AdminDashboard() {
   const [isMounted, setIsMounted] = useState(false);
   const [hintText, setHintText] = useState('');
   const [selectedLevelId, setSelectedLevelId] = useState('');
+  const [penaltyMinutes, setPenaltyMinutes] = useState('45');
   const [globalFlags, setGlobalFlags] = useState<TeamFlag[]>([]);
   const [hintRequests, setHintRequests] = useState<any[]>([]);
 
@@ -31,7 +68,7 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     if (isMounted && !authLoading && auth.userType !== 'admin') {
-      router.push('/admin/login');
+      router.push('/login');
     }
   }, [auth, authLoading, router, isMounted]);
 
@@ -57,8 +94,10 @@ export default function AdminDashboard() {
     refresh();
   };
 
-  const handlePenalty = (teamId: string) => {
-    localApi.applyPenalty(teamId);
+  const handleApplyPenalty = (teamId: string) => {
+    const mins = parseInt(penaltyMinutes);
+    if (isNaN(mins)) return;
+    localApi.applyPenalty(teamId, mins);
     refresh();
   };
 
@@ -76,7 +115,7 @@ export default function AdminDashboard() {
 
   if (auth.userType !== 'admin') return null;
 
-  const flaggedTeams = teams.filter(t => t.flagCount > 0 || globalFlags.some(f => f.teamId === t.id));
+  const flaggedTeams = teams.filter(t => t.flagCount > 0 || globalFlags.some(f => f.teamId === t.id) || (t.penaltyUntil && new Date(t.penaltyUntil) > new Date()));
 
   return (
     <div className="min-h-screen bg-background flex flex-col p-6 pt-24 space-y-8 max-w-[1400px] mx-auto w-full">
@@ -107,9 +146,12 @@ export default function AdminDashboard() {
                   <span className="font-mono text-xs text-white/20 group-hover:text-primary/50">{String(i + 1).padStart(2, '0')}</span>
                   <div className="flex flex-col">
                     <span className="font-bold text-sm text-white">{team.teamName}</span>
-                    <span className="text-[9px] text-white/20 font-mono uppercase tracking-widest">
-                      {team.penaltyUntil && new Date(team.penaltyUntil) > new Date() ? 'LOCKOUT_ACTIVE' : 'STATUS_STABLE'}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[9px] text-white/20 font-mono uppercase tracking-widest">
+                        {team.penaltyUntil && new Date(team.penaltyUntil) > new Date() ? 'LOCKOUT_ACTIVE' : 'STATUS_STABLE'}
+                      </span>
+                      <PenaltyTimer until={team.penaltyUntil} />
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
@@ -174,14 +216,43 @@ export default function AdminDashboard() {
               <div key={team.id} className="p-4 bg-destructive/5 border border-destructive/20 rounded-xl flex items-center justify-between">
                 <div className="flex flex-col">
                   <span className="font-bold text-sm text-white">{team.teamName}</span>
-                  <span className="text-[10px] text-destructive font-mono uppercase tracking-widest">Flags: {team.flagCount}</span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-[10px] text-destructive font-mono uppercase tracking-widest">Flags: {team.flagCount}</span>
+                    <PenaltyTimer until={team.penaltyUntil} />
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <Badge variant="destructive" className="text-[9px] uppercase">Suspicious</Badge>
-                  <Button size="icon" variant="ghost" className="h-8 w-8 text-white/20 hover:text-white" onClick={() => handlePenalty(team.id)}>
-                    <AlertTriangle className="w-4 h-4" />
-                  </Button>
-                </div>
+                
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-8 bg-destructive/10 border-destructive/20 text-destructive hover:bg-destructive/20 text-[10px] font-bold uppercase tracking-widest">
+                      Set Penalty
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="bg-card border-white/5 text-white">
+                    <DialogHeader>
+                      <DialogTitle className="text-xl font-headline tracking-tight flex items-center gap-2">
+                        <Clock className="w-5 h-5 text-destructive" /> Time Lockout
+                      </DialogTitle>
+                    </DialogHeader>
+                    <div className="py-4 space-y-4">
+                      <p className="text-sm text-muted-foreground">Select duration for <span className="text-white font-bold">{team.teamName}</span> terminal lockout.</p>
+                      <div className="space-y-2">
+                        <label className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Duration (Minutes)</label>
+                        <Input 
+                          type="number" 
+                          value={penaltyMinutes} 
+                          onChange={(e) => setPenaltyMinutes(e.target.value)}
+                          className="bg-background border-white/5 text-white"
+                        />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button variant="destructive" onClick={() => handleApplyPenalty(team.id)} className="w-full font-bold uppercase tracking-widest">
+                        Apply Protocol Lockout
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
               </div>
             ))}
             {flaggedTeams.length === 0 && (
