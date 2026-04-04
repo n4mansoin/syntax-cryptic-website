@@ -10,9 +10,9 @@ import { Button } from '@/components/ui/button';
 import { 
   BarChart3, Lightbulb, Loader2, Plus, Flag, Activity, MousePointer2, Timer, Clock, X
 } from 'lucide-react';
-import { useLocalStore } from '@/lib/local-store';
+import { useStore } from '@/lib/local-store';
 import { Input } from '@/components/ui/input';
-import { localApi, Flag as TeamFlag } from '@/services/local-api';
+import { localApi } from '@/services/local-api';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   Dialog,
@@ -57,7 +57,7 @@ interface TeamPenaltyDialogProps {
 }
 
 function TeamPenaltyDialog({ team, onApply }: TeamPenaltyDialogProps) {
-  const [mins, setMins] = useState('60');
+  const [mins, setMins] = useState('45');
   const [open, setOpen] = useState(false);
 
   const handleApply = () => {
@@ -102,13 +102,11 @@ function TeamPenaltyDialog({ team, onApply }: TeamPenaltyDialogProps) {
 
 export default function AdminDashboard() {
   const { auth, loading: authLoading } = useAuth();
-  const { teams, levels, isReady, refresh } = useLocalStore();
+  const { state, isReady, updateStore } = useStore();
   const router = useRouter();
   const [isMounted, setIsMounted] = useState(false);
   const [hintText, setHintText] = useState('');
   const [selectedLevelId, setSelectedLevelId] = useState('');
-  const [globalFlags, setGlobalFlags] = useState<TeamFlag[]>([]);
-  const [hintRequests, setHintRequests] = useState<any[]>([]);
 
   useEffect(() => {
     setIsMounted(true);
@@ -120,41 +118,29 @@ export default function AdminDashboard() {
     }
   }, [auth, authLoading, router, isMounted]);
 
-  useEffect(() => {
-    if (isReady) {
-      const f = JSON.parse(localStorage.getItem('is_flags') || '[]');
-      const r = JSON.parse(localStorage.getItem('is_hint_requests') || '[]');
-      setGlobalFlags(f);
-      setHintRequests(r);
-    }
-  }, [isReady, teams]);
-
   const handleAddHint = () => {
     if (!hintText || !selectedLevelId) return;
-    localApi.releaseHint(selectedLevelId, hintText);
+    localApi.releaseHint(selectedLevelId, hintText, { state, updateStore });
     setHintText('');
     setSelectedLevelId('');
-    refresh();
   };
 
   const handleFlagTeam = (teamId: string) => {
-    localApi.flagTeam(teamId, "Manual Admin Flag");
-    refresh();
+    localApi.flagTeam(teamId, "Manual Admin Flag", { state, updateStore });
   };
 
   const handleApplyPenalty = (teamId: string, mins: number) => {
     if (isNaN(mins)) return;
-    localApi.applyPenalty(teamId, mins);
-    refresh();
+    localApi.applyPenalty(teamId, mins, { state, updateStore });
   };
 
   const handleRemovePenalty = (teamId: string) => {
-    localApi.removePenalty(teamId);
-    refresh();
+    localApi.removePenalty(teamId, { state, updateStore });
   };
 
   const getRequestsForLevel = (levelId: string) => {
-    return hintRequests.filter(r => r.levelId === levelId).length;
+    // Simulated as total attempts on the level
+    return state.attempts.filter(a => a.levelId === levelId).length;
   };
 
   if (!isMounted || authLoading || !isReady) {
@@ -167,7 +153,7 @@ export default function AdminDashboard() {
 
   if (auth.userType !== 'admin') return null;
 
-  const flaggedTeams = teams.filter(t => t.flagCount > 0 || globalFlags.some(f => f.teamId === t.id) || (t.penaltyUntil && new Date(t.penaltyUntil) > new Date()));
+  const flaggedTeams = state.teams.filter(t => t.flagCount > 0 || (t.penaltyUntil && new Date(t.penaltyUntil) > new Date()));
 
   return (
     <div className="min-h-screen bg-background flex flex-col p-6 pt-24 space-y-8 max-w-[1400px] mx-auto w-full">
@@ -192,7 +178,7 @@ export default function AdminDashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            {[...teams].sort((a,b) => b.currentLevel - a.currentLevel).map((team, i) => (
+            {[...state.teams].sort((a,b) => b.currentLevel - a.currentLevel).map((team, i) => (
               <div key={team.id} className="flex items-center justify-between p-4 bg-white/[0.02] border border-white/5 rounded-xl group hover:border-primary/20 transition-all">
                 <div className="flex items-center gap-4">
                   <span className="font-mono text-xs text-white/20 group-hover:text-primary/50">{String(i + 1).padStart(2, '0')}</span>
@@ -219,9 +205,6 @@ export default function AdminDashboard() {
                 </div>
               </div>
             ))}
-            {teams.length === 0 && (
-              <p className="text-center py-8 text-white/20 font-mono text-xs">NO ACTIVE TEAMS FOUND</p>
-            )}
           </CardContent>
         </Card>
 
@@ -241,7 +224,7 @@ export default function AdminDashboard() {
                 className="w-full bg-background border border-white/5 p-2 rounded text-xs font-mono text-white"
               >
                 <option value="">Select Level</option>
-                {levels.map(l => <option key={l.id} value={l.id}>Level {l.order}</option>)}
+                {state.levels.map(l => <option key={l.id} value={l.id}>Level {l.order}</option>)}
               </select>
               <Input 
                 placeholder="Cryptic hint content..." 
@@ -284,7 +267,6 @@ export default function AdminDashboard() {
                     </div>
                   </div>
                 </div>
-                
                 <TeamPenaltyDialog team={team} onApply={handleApplyPenalty} />
               </div>
             ))}
@@ -313,7 +295,7 @@ export default function AdminDashboard() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {levels.map((level) => (
+                {state.levels.map((level) => (
                   <TableRow key={level.id} className="border-white/5 hover:bg-white/[0.02] transition-colors">
                     <TableCell className="font-mono text-xs text-white">LVL_0{level.order}</TableCell>
                     <TableCell className="text-right">

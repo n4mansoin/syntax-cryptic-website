@@ -1,96 +1,58 @@
 'use client';
 
 import { sha256, normalizeAnswer } from '@/utils/hash';
-import { SECRET_KEY, ATTEMPT_LIMIT_PER_MINUTE, FLAGS_UNTIL_PENALTY, PENALTY_DURATION_MINUTES } from '@/utils/constants';
+import { SECRET_KEY, ATTEMPT_LIMIT_PER_MINUTE, FLAGS_UNTIL_PENALTY } from '@/utils/constants';
+import { StoreState, Team, Level, Attempt, Flag } from '@/lib/local-store';
 
-// Internal types
-export interface Team {
-  id: string;
-  teamName: string;
-  password?: string;
-  currentLevel: number;
-  flagCount: number;
-  penaltyUntil: string | null;
-  lastSolvedAt: string | null;
+/**
+ * Service Layer for INTRA SYNTAX CRYPTIC.
+ * Refactored to operate on centralized state via updateStore pipeline.
+ */
+interface StoreContext {
+  state: StoreState;
+  updateStore: <K extends keyof StoreState>(key: K, data: StoreState[K], broadcast?: boolean) => void;
 }
 
-export interface Level {
-  id: string;
-  order: number;
-  question: string;
-  answerHash: string;
-  salt: string;
-}
-
-export interface Hint {
-  id: string;
-  levelId: string;
-  hintText: string;
-  isReleased: boolean;
-  releasedAt: string | null;
-}
-
-export interface Attempt {
-  id: string;
-  teamId: string;
-  levelId: string;
-  timestamp: string;
-  isCorrect: boolean;
-}
-
-export interface Flag {
-  id: string;
-  teamId: string;
-  reason: string;
-  timestamp: string;
-}
-
-const STORAGE_KEYS = {
-  TEAMS: 'is_teams',
-  LEVELS: 'is_levels',
-  HINTS: 'is_hints',
-  ATTEMPTS: 'is_attempts',
-  FLAGS: 'is_flags'
-};
-
-class LocalApiService {
-  private getStore<T>(key: string, defaultValue: T): T {
-    if (typeof window === 'undefined') return defaultValue;
-    const stored = localStorage.getItem(key);
-    return stored ? JSON.parse(stored) : defaultValue;
-  }
-
-  private saveStore(key: string, data: any) {
-    if (typeof window === 'undefined') return;
-    localStorage.setItem(key, JSON.stringify(data));
-    // Dispatch a storage event to help other components on the same page sync
-    window.dispatchEvent(new Event('storage'));
-  }
-
-  async loginTeam(teamName: string, password: string): Promise<Team | null> {
-    const teams = this.getStore<Team[]>(STORAGE_KEYS.TEAMS, []);
+export const localApi = {
+  /**
+   * Authenticates a team or administrator.
+   */
+  async loginTeam(teamName: string, password: string, state: StoreState): Promise<Team | null> {
     const normalizedName = teamName.trim();
     const normalizedPass = password.trim();
     
-    const team = teams.find(t => 
+    // Admin Root Override
+    if (normalizedName === 'admin' && normalizedPass === 'qawsedrftg') {
+      return { 
+        id: 'admin-root', 
+        teamName: 'admin', 
+        currentLevel: 0, 
+        flagCount: 0, 
+        penaltyUntil: null, 
+        lastSolvedAt: null 
+      } as Team;
+    }
+
+    const team = state.teams.find(t => 
       t.teamName.toLowerCase() === normalizedName.toLowerCase() && 
       t.password === normalizedPass
     );
     
-    if (!team) return null;
-    const { password: _, ...safeTeam } = team;
-    return safeTeam as Team;
-  }
+    return team || null;
+  },
 
-  async submitAnswer(teamId: string, levelId: string, userInput: string): Promise<{ success: boolean; message: string; flagged?: boolean }> {
-    const teams = this.getStore<Team[]>(STORAGE_KEYS.TEAMS, []);
+  /**
+   * Processes a decryption attempt with security enforcement.
+   */
+  async submitAnswer(teamId: string, levelId: string, userInput: string, { state, updateStore }: StoreContext) {
+    const teams = [...state.teams];
     const teamIndex = teams.findIndex(t => t.id === teamId);
     if (teamIndex === -1) return { success: false, message: "Team not found." };
 
-    const team = teams[teamIndex];
+    const team = { ...teams[teamIndex] };
     const now = new Date();
 
-    // 1. Check Penalty
+    // 1. Check Penalty Status
     if (team.penaltyUntil && new Date(team.penaltyUntil) > now) {
       return { 
         success: false, 
@@ -98,76 +60,51 @@ class LocalApiService {
       };
     }
 
-    // 2. Rate Limiting (5 attempts in last 60s)
-    const attempts = this.getStore<Attempt[]>(STORAGE_KEYS.ATTEMPTS, []);
+    // 2. Rate Limiting Enforcement
+    const attempts = [...state.attempts];
     const oneMinuteAgo = new Date(now.getTime() - 60000);
     const recentAttempts = attempts.filter(a => a.teamId === teamId && new Date(a.timestamp) > oneMinuteAgo);
 
     if (recentAttempts.length >= ATTEMPT_LIMIT_PER_MINUTE) {
-      this.flagTeam(teamId, "Rate limit breach (>5/min)");
+      this.flagTeam(teamId, "Rate limit breach (>5/min)", { state, updateStore });
       return { success: false, message: "Decryption rate too high. Caution advised.", flagged: true };
     }
 
-    // 3. Hash and Compare
-    const levels = this.getStore<Level[]>(STORAGE_KEYS.LEVELS, []);
-    const level = levels.find(l => l.id === levelId);
+    // 3. Security Check: Hashing and Comparison
+    const level = state.levels.find(l => l.id === levelId);
     if (!level) return { success: false, message: "Level signal lost." };
 
     const normalized = normalizeAnswer(userInput);
     const inputHash = await sha256(level.salt + SECRET_KEY + normalized);
     const isCorrect = inputHash === level.answerHash;
 
-    // 4. Log Attempt
-    attempts.push({
+    // 4. Record Attempt
+    const newAttempt: Attempt = {
       id: Math.random().toString(36).substr(2, 9),
       teamId,
       levelId,
       timestamp: now.toISOString(),
       isCorrect
-    });
-    this.saveStore(STORAGE_KEYS.ATTEMPTS, attempts);
+    };
+    attempts.push(newAttempt);
+    updateStore('attempts', attempts);
 
     if (isCorrect) {
       team.currentLevel += 1;
       team.lastSolvedAt = now.toISOString();
       teams[teamIndex] = team;
-      this.saveStore(STORAGE_KEYS.TEAMS, teams);
+      updateStore('teams', teams);
       return { success: true, message: "Decryption successful. Proceeding." };
     }
 
     return { success: false, message: "Decryption failed. Signal incorrect." };
-  }
+  },
 
-  getLeaderboard(): Team[] {
-    const teams = this.getStore<Team[]>(STORAGE_KEYS.TEAMS, []);
-    return [...teams].sort((a, b) => {
-      if (b.currentLevel !== a.currentLevel) return b.currentLevel - a.currentLevel;
-      if (!a.lastSolvedAt) return 1;
-      if (!b.lastSolvedAt) return -1;
-      return new Date(a.lastSolvedAt).getTime() - new Date(b.lastSolvedAt).getTime();
-    });
-  }
-
-  getHints(levelId: string): Hint[] {
-    const hints = this.getStore<Hint[]>(STORAGE_KEYS.HINTS, []);
-    return hints.filter(h => h.levelId === levelId && h.isReleased);
-  }
-
-  // Admin Actions
-  releaseHint(levelId: string, hintText: string) {
-    const hints = this.getStore<Hint[]>(STORAGE_KEYS.HINTS, []);
-    hints.push({
-      id: Math.random().toString(36).substr(2, 9),
-      levelId,
-      hintText,
-      isReleased: true,
-      releasedAt: new Date().toISOString()
-    });
-    this.saveStore(STORAGE_KEYS.HINTS, hints);
-  }
-
-  flagTeam(teamId: string, reason: string = "Manual Admin Flag") {
-    const flags = this.getStore<Flag[]>(STORAGE_KEYS.FLAGS, []);
+  /**
+   * Flags a team and handles automatic 45-minute lockout thresholds.
+   */
+  flagTeam(teamId: string, reason: string, { state, updateStore }: StoreContext) {
+    const flags = [...state.flags];
     const now = new Date();
     flags.push({
       id: Math.random().toString(36).substr(2, 9),
@@ -175,68 +112,65 @@ class LocalApiService {
       reason,
       timestamp: now.toISOString()
     });
-    this.saveStore(STORAGE_KEYS.FLAGS, flags);
+    updateStore('flags', flags);
 
-    const teams = this.getStore<Team[]>(STORAGE_KEYS.TEAMS, []);
+    const teams = [...state.teams];
     const teamIndex = teams.findIndex(t => t.id === teamId);
     if (teamIndex !== -1) {
-      const team = teams[teamIndex];
+      const team = { ...teams[teamIndex] };
       team.flagCount += 1;
       
-      // Apply 60 minute penalty if 3rd flag reached
+      // Threshold check: 3 flags = 45 minute penalty
       if (team.flagCount >= FLAGS_UNTIL_PENALTY) {
-        team.penaltyUntil = new Date(now.getTime() + PENALTY_DURATION_MINUTES * 60000).toISOString();
-        team.flagCount = 0; // Reset after penalty applied
+        team.penaltyUntil = new Date(now.getTime() + 45 * 60000).toISOString();
+        team.flagCount = 0; 
       }
       
       teams[teamIndex] = team;
-      this.saveStore(STORAGE_KEYS.TEAMS, teams);
+      updateStore('teams', teams);
     }
-  }
+  },
 
-  applyPenalty(teamId: string, durationMinutes: number = 45) {
-    const teams = this.getStore<Team[]>(STORAGE_KEYS.TEAMS, []);
-    const teamIndex = teams.findIndex(t => t.id === teamId);
-    if (teamIndex !== -1) {
-      teams[teamIndex].penaltyUntil = new Date(Date.now() + durationMinutes * 60000).toISOString();
-      this.saveStore(STORAGE_KEYS.TEAMS, teams);
-    }
-  }
-
-  removePenalty(teamId: string) {
-    const teams = this.getStore<Team[]>(STORAGE_KEYS.TEAMS, []);
-    const teamIndex = teams.findIndex(t => t.id === teamId);
-    if (teamIndex !== -1) {
-      teams[teamIndex].penaltyUntil = null;
-      this.saveStore(STORAGE_KEYS.TEAMS, teams);
-    }
-  }
-
-  initializeData(initialLevels: Level[], initialTeams: Team[]) {
-    if (!localStorage.getItem(STORAGE_KEYS.LEVELS)) {
-      this.saveStore(STORAGE_KEYS.LEVELS, initialLevels);
-    }
-    
-    const existingTeams = this.getStore<Team[]>(STORAGE_KEYS.TEAMS, []);
-    let modified = false;
-
-    initialTeams.forEach(initialTeam => {
-      const index = existingTeams.findIndex(t => t.teamName === initialTeam.teamName);
-      if (index === -1) {
-        existingTeams.push(initialTeam);
-        modified = true;
-      } else {
-        if (existingTeams[index].password !== initialTeam.password) {
-          existingTeams[index].password = initialTeam.password;
-          modified = true;
-        }
-      }
+  /**
+   * Releases a cryptic hint for a specific level.
+   */
+  releaseHint(levelId: string, hintText: string, { state, updateStore }: StoreContext) {
+    const hints = [...state.hints];
+    hints.push({
+      id: Math.random().toString(36).substr(2, 9),
+      levelId,
+      hintText,
+      isReleased: true,
+      releasedAt: new Date().toISOString()
     });
+    updateStore('hints', hints);
+  },
 
-    if (modified) {
-      this.saveStore(STORAGE_KEYS.TEAMS, existingTeams);
+  /**
+   * Applies a manual time penalty to a team.
+   */
+  applyPenalty(teamId: string, durationMinutes: number, { state, updateStore }: StoreContext) {
+    const teams = [...state.teams];
+    const teamIndex = teams.findIndex(t => t.id === teamId);
+    if (teamIndex !== -1) {
+      const team = { ...teams[teamIndex] };
+      team.penaltyUntil = new Date(Date.now() + durationMinutes * 60000).toISOString();
+      teams[teamIndex] = team;
+      updateStore('teams', teams);
+    }
+  },
+
+  /**
+   * Overrides and removes an active time penalty.
+   */
+  removePenalty(teamId: string, { state, updateStore }: StoreContext) {
+    const teams = [...state.teams];
+    const teamIndex = teams.findIndex(t => t.id === teamId);
+    if (teamIndex !== -1) {
+      const team = { ...teams[teamIndex] };
+      team.penaltyUntil = null;
+      teams[teamIndex] = team;
+      updateStore('teams', teams);
     }
   }
-}
-
-export const localApi = new LocalApiService();
+};

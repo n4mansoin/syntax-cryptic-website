@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Navbar } from '@/components/Navbar';
 import { Terminal, Lock, User, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useStore } from '@/lib/local-store';
 import { localApi } from '@/services/local-api';
 
 export default function LoginPage() {
@@ -18,6 +19,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const { loginTeam, loginAdmin, auth, loading: authLoading } = useAuth();
+  const { state } = useStore();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -33,24 +35,21 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
 
-    // Unified login: Check for admin credentials first
-    if (teamName === 'admin' && password === 'qawsedrftg') {
-      loginAdmin('admin-root');
-      toast({ title: "Admin Access Granted", description: "Relaying to control center." });
-      setLoading(false);
-      return;
-    }
-
-    const team = await localApi.loginTeam(teamName, password);
+    const team = await localApi.loginTeam(teamName, password, state);
 
     if (team) {
-      loginTeam(team.id, team.teamName);
-      toast({ title: "Decryption Successful", description: `Connection established.` });
+      if (team.id === 'admin-root') {
+        loginAdmin('admin-root');
+        toast({ title: "Admin Access Granted", description: "Relaying to control center." });
+      } else {
+        loginTeam(team.id, team.teamName);
+        toast({ title: "Decryption Successful", description: `Connection established.` });
+      }
     } else {
       toast({ 
         variant: "destructive", 
         title: "Authentication Failed", 
-        description: "Invalid credentials (test123 / testing)." 
+        description: "Invalid credentials." 
       });
     }
     setLoading(false);
@@ -80,7 +79,7 @@ export default function LoginPage() {
                     <User className="absolute left-3 top-3 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                     <Input 
                       id="teamName" 
-                      placeholder="test123" 
+                      placeholder="Terminal Name" 
                       className="pl-10 h-12 bg-background border-white/5 focus:border-primary/50 font-mono text-white" 
                       value={teamName}
                       onChange={(e) => setTeamName(e.target.value)}

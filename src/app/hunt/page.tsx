@@ -9,12 +9,12 @@ import { Progress } from '@/components/ui/progress';
 import { Terminal, Send, Timer, HelpCircle, Lightbulb, CheckCircle2, Loader2, AlertCircle, ShieldAlert } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth-store';
-import { useLocalStore } from '@/lib/local-store';
-import { localApi, Hint } from '@/services/local-api';
+import { useStore } from '@/lib/local-store';
+import { localApi } from '@/services/local-api';
 
 export default function HuntPage() {
   const { auth, loading: authLoading } = useAuth();
-  const { levels, teams, isReady, refresh } = useLocalStore();
+  const { state, isReady, updateStore } = useStore();
   const router = useRouter();
   const { toast } = useToast();
   
@@ -22,7 +22,6 @@ export default function HuntPage() {
   const [submitting, setSubmitting] = useState(false);
   const [levelTimer, setLevelTimer] = useState(0);
   const [isMounted, setIsMounted] = useState(false);
-  const [releasedHints, setReleasedHints] = useState<Hint[]>([]);
   const [penaltyTimeLeft, setPenaltyTimeLeft] = useState<string | null>(null);
 
   useEffect(() => {
@@ -35,11 +34,12 @@ export default function HuntPage() {
     }
   }, [auth, authLoading, router, isMounted]);
 
-  const teamData = teams.find(t => t.id === auth.teamId);
+  const teamData = state.teams.find(t => t.id === auth.teamId);
   const currentLevelNumber = teamData?.currentLevel || 1;
-  const currentLevel = levels.find(l => l.order === currentLevelNumber);
+  const currentLevel = state.levels.find(l => l.order === currentLevelNumber);
   
-  // Penalty Countdown Effect
+  const releasedHints = state.hints.filter(h => h.levelId === currentLevel?.id && h.isReleased);
+
   useEffect(() => {
     if (!teamData?.penaltyUntil) {
       setPenaltyTimeLeft(null);
@@ -50,7 +50,6 @@ export default function HuntPage() {
       const distance = new Date(teamData.penaltyUntil!).getTime() - new Date().getTime();
       if (distance <= 0) {
         setPenaltyTimeLeft(null);
-        refresh();
       } else {
         const m = Math.floor(distance / 60000);
         const s = Math.floor((distance % 60000) / 1000);
@@ -60,15 +59,8 @@ export default function HuntPage() {
 
     checkPenalty();
     const interval = setInterval(checkPenalty, 1000);
-
     return () => clearInterval(interval);
-  }, [teamData?.penaltyUntil, refresh]);
-
-  useEffect(() => {
-    if (currentLevel) {
-      setReleasedHints(localApi.getHints(currentLevel.id));
-    }
-  }, [currentLevel, teams]);
+  }, [teamData?.penaltyUntil]);
 
   useEffect(() => {
     if (isMounted && auth.teamId && isReady && !penaltyTimeLeft) {
@@ -83,39 +75,22 @@ export default function HuntPage() {
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  const handleRequestHint = () => {
-    toast({ 
-      title: "Signal Sent", 
-      description: "Mission control has been notified. Check back soon." 
-    });
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!answer.trim() || !auth.teamId || !currentLevel || penaltyTimeLeft) return;
     setSubmitting(true);
 
-    const result = await localApi.submitAnswer(auth.teamId, currentLevel.id, answer);
+    const result = await localApi.submitAnswer(auth.teamId, currentLevel.id, answer, { state, updateStore });
 
     if (result.success) {
       toast({ title: "Decryption Successful", description: result.message });
       setAnswer('');
-      refresh();
     } else {
-      if (result.flagged) {
-        toast({ 
-          variant: "destructive", 
-          title: "Protocol Violation", 
-          description: "Transmission frequency too high. Terminal has been flagged." 
-        });
-      } else {
-        toast({ 
-          variant: "destructive", 
-          title: "Access Denied", 
-          description: result.message 
-        });
-      }
-      refresh(); // Sync potential penalty/flag update
+      toast({ 
+        variant: "destructive", 
+        title: result.flagged ? "Protocol Violation" : "Access Denied", 
+        description: result.message 
+      });
     }
     setSubmitting(false);
   };
@@ -188,7 +163,6 @@ export default function HuntPage() {
               <div className="space-y-2">
                 <h3 className="text-xl font-bold uppercase">No Signals Found</h3>
                 <p className="text-sm text-muted-foreground">Encryption level synchronization failed. Initializing local backup...</p>
-                <Button onClick={() => window.location.reload()} className="mt-4">Reconnect Uplink</Button>
               </div>
             </div>
           ) : (
@@ -217,21 +191,12 @@ export default function HuntPage() {
               </form>
 
               <div className="w-full max-w-lg space-y-4">
-                {releasedHints.length === 0 ? (
-                  <Button 
-                    variant="ghost" 
-                    onClick={handleRequestHint}
-                    className="w-full text-white/20 hover:text-primary hover:bg-primary/5 text-xs font-mono uppercase tracking-widest h-12 transition-all border border-transparent hover:border-primary/10"
-                  >
-                    <Lightbulb className="w-4 h-4 mr-2" /> Request Cryptic Hint
-                  </Button>
-                ) : (
+                {releasedHints.length > 0 && (
                   <div className="p-6 bg-primary/5 border border-primary/20 rounded-xl animate-scale-up text-center space-y-4">
                     <div className="flex items-center justify-center gap-2">
                       <CheckCircle2 className="h-4 w-4 text-primary" />
                       <span className="text-[10px] text-primary uppercase font-bold tracking-[0.3em]">Status: Signal Decrypted</span>
                     </div>
-                    
                     <div className="space-y-2 text-left">
                       <p className="text-[10px] uppercase font-bold text-primary/70">Released Hints:</p>
                       {releasedHints.map((hint) => (

@@ -6,26 +6,25 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Trophy, ArrowUp, Search, Globe } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { useLocalStore } from '@/lib/local-store';
-import { localApi, Team } from '@/services/local-api';
+import { useStore } from '@/lib/local-store';
 
 export default function LeaderboardPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const { isReady } = useLocalStore();
-  const [leaderboard, setLeaderboard] = useState<Team[]>([]);
+  const { state, isReady } = useStore();
 
   useEffect(() => {
-    const update = () => {
-      setLeaderboard(localApi.getLeaderboard());
-      setLastUpdated(new Date());
-    };
-    update();
-    const interval = setInterval(update, 10000);
-    return () => clearInterval(interval);
-  }, []);
+    setLastUpdated(new Date());
+  }, [state.teams]);
 
-  const filteredTeams = leaderboard.filter(t => 
+  const sortedLeaderboard = [...state.teams].sort((a, b) => {
+    if (b.currentLevel !== a.currentLevel) return b.currentLevel - a.currentLevel;
+    if (!a.lastSolvedAt) return 1;
+    if (!b.lastSolvedAt) return -1;
+    return new Date(a.lastSolvedAt).getTime() - new Date(b.lastSolvedAt).getTime();
+  });
+
+  const filteredTeams = sortedLeaderboard.filter(t => 
     t.teamName.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -44,7 +43,7 @@ export default function LeaderboardPage() {
             </div>
             <p className="text-muted-foreground text-sm flex items-center gap-2">
               <Globe className="w-4 h-4 animate-pulse text-primary/50" />
-              Real-time progression monitor // Auto-refreshing every 10s
+              Real-time progression monitor // High-frequency synchronization active
             </p>
           </div>
           
