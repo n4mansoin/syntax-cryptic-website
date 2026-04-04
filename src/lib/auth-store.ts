@@ -12,7 +12,7 @@ interface AuthState {
   is2FAVerified: boolean;
 }
 
-const STORAGE_KEY = 'intra_syntax_auth';
+const STORAGE_KEY = 'intra_syntax_auth_v2';
 
 export function useAuth() {
   const [auth, setAuth] = useState<AuthState>({
@@ -28,7 +28,11 @@ export function useAuth() {
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
-      setAuth(JSON.parse(stored));
+      try {
+        setAuth(JSON.parse(stored));
+      } catch (e) {
+        console.error("Failed to parse auth store", e);
+      }
     }
     setLoading(false);
   }, []);
@@ -58,9 +62,11 @@ export function useAuth() {
   };
 
   const verify2FA = () => {
-    const newState = { ...auth, is2FAVerified: true };
-    setAuth(newState);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(newState));
+    setAuth(prev => {
+      const newState = { ...prev, is2FAVerified: true };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(newState));
+      return newState;
+    });
   };
 
   const logout = () => {
