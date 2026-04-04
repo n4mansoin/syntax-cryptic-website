@@ -7,21 +7,27 @@ import { Trophy, ArrowUp, Search, Globe } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useLocalStore } from '@/lib/local-store';
+import { localApi, Team } from '@/services/local-api';
 
 export default function LeaderboardPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const { teams, isReady } = useLocalStore();
+  const { isReady } = useLocalStore();
+  const [leaderboard, setLeaderboard] = useState<Team[]>([]);
 
   useEffect(() => {
-    setLastUpdated(new Date());
-    const interval = setInterval(() => setLastUpdated(new Date()), 10000);
+    const update = () => {
+      setLeaderboard(localApi.getLeaderboard());
+      setLastUpdated(new Date());
+    };
+    update();
+    const interval = setInterval(update, 10000);
     return () => clearInterval(interval);
   }, []);
 
-  const filteredTeams = [...teams]
-    .filter(t => t.teamName.toLowerCase().includes(searchTerm.toLowerCase()))
-    .sort((a, b) => b.currentLevel - a.currentLevel);
+  const filteredTeams = leaderboard.filter(t => 
+    t.teamName.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   if (!isReady) return null;
 

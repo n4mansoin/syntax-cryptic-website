@@ -10,10 +10,11 @@ import { Terminal, Send, Timer, HelpCircle, Lightbulb, CheckCircle2, Loader2, Al
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth-store';
 import { useLocalStore } from '@/lib/local-store';
+import { localApi, Hint } from '@/services/local-api';
 
 export default function HuntPage() {
   const { auth, loading: authLoading } = useAuth();
-  const { levels, teams, hints, hintRequests, updateTeam, addHintRequest, isReady } = useLocalStore();
+  const { levels, teams, isReady, refresh } = useLocalStore();
   const router = useRouter();
   const { toast } = useToast();
   
@@ -21,6 +22,7 @@ export default function HuntPage() {
   const [submitting, setSubmitting] = useState(false);
   const [levelTimer, setLevelTimer] = useState(0);
   const [isMounted, setIsMounted] = useState(false);
+  const [releasedHints, setReleasedHints] = useState<Hint[]>([]);
 
   useEffect(() => {
     setIsMounted(true);
@@ -36,8 +38,11 @@ export default function HuntPage() {
   const currentLevelNumber = teamData?.currentLevel || 1;
   const currentLevel = levels.find(l => l.order === currentLevelNumber);
   
-  const hasRequestedHint = hintRequests.some(r => r.teamId === auth.teamId && r.levelId === currentLevel?.id);
-  const releasedHints = hints.filter(h => h.levelId === currentLevel?.id && h.isReleased);
+  useEffect(() => {
+    if (currentLevel) {
+      setReleasedHints(localApi.getHints(currentLevel.id));
+    }
+  }, [currentLevel, teams]); // Refresh hints when team data changes
 
   useEffect(() => {
     if (isMounted && auth.teamId && isReady) {
@@ -53,36 +58,28 @@ export default function HuntPage() {
   };
 
   const handleRequestHint = () => {
-    if (!auth.teamId || !currentLevel?.id) return;
-    
-    addHintRequest({
-      teamId: auth.teamId,
-      levelId: currentLevel.id,
-      requestedAt: new Date().toISOString()
-    });
-
     toast({ 
-      title: "Hint Requested", 
-      description: "Signal sent to mission control." 
+      title: "Signal Sent", 
+      description: "Mission control has been notified. Check back soon." 
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!answer.trim() || !auth.teamId || !currentLevel) return;
     setSubmitting(true);
 
-    const isCorrect = answer.toUpperCase().trim() === currentLevel.answer.toUpperCase().trim();
+    const result = await localApi.submitAnswer(auth.teamId, currentLevel.id, answer);
 
-    if (isCorrect) {
-      updateTeam(auth.teamId, { currentLevel: currentLevelNumber + 1 });
-      toast({ title: "Decryption Successful", description: "Advancing to next layer." });
+    if (result.success) {
+      toast({ title: "Decryption Successful", description: result.message });
       setAnswer('');
+      refresh();
     } else {
       toast({ 
         variant: "destructive", 
-        title: "Incorrect Answer", 
-        description: "Try again or analyze the data patterns." 
+        title: "Access Denied", 
+        description: result.message 
       });
     }
     setSubmitting(false);
@@ -169,7 +166,7 @@ export default function HuntPage() {
               </form>
 
               <div className="w-full max-w-lg space-y-4">
-                {!hasRequestedHint ? (
+                {releasedHints.length === 0 ? (
                   <Button 
                     variant="ghost" 
                     onClick={handleRequestHint}
@@ -181,23 +178,17 @@ export default function HuntPage() {
                   <div className="p-6 bg-primary/5 border border-primary/20 rounded-xl animate-scale-up text-center space-y-4">
                     <div className="flex items-center justify-center gap-2">
                       <CheckCircle2 className="h-4 w-4 text-primary" />
-                      <span className="text-[10px] text-primary uppercase font-bold tracking-[0.3em]">Status: Hint Requested</span>
+                      <span className="text-[10px] text-primary uppercase font-bold tracking-[0.3em]">Status: Signal Decrypted</span>
                     </div>
                     
-                    {releasedHints.length > 0 ? (
-                      <div className="space-y-2 text-left">
-                        <p className="text-[10px] uppercase font-bold text-primary/70">Released Hints:</p>
-                        {releasedHints.map((hint) => (
-                          <p key={hint.id} className="text-sm font-body text-white/90 italic p-3 bg-white/[0.02] border border-white/5 rounded-lg">
-                            "{hint.hintText}"
-                          </p>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-[10px] text-primary/50 uppercase font-mono tracking-widest">
-                        Awaiting administrator authorization...
-                      </p>
-                    )}
+                    <div className="space-y-2 text-left">
+                      <p className="text-[10px] uppercase font-bold text-primary/70">Released Hints:</p>
+                      {releasedHints.map((hint) => (
+                        <p key={hint.id} className="text-sm font-body text-white/90 italic p-3 bg-white/[0.02] border border-white/5 rounded-lg">
+                          "{hint.hintText}"
+                        </p>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>

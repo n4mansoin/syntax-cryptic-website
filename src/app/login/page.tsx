@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Navbar } from '@/components/Navbar';
 import { Terminal, Lock, User, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useLocalStore } from '@/lib/local-store';
+import { localApi } from '@/services/local-api';
 
 export default function LoginPage() {
   const [teamName, setTeamName] = useState('');
@@ -18,7 +18,6 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const { loginTeam, auth, loading: authLoading } = useAuth();
-  const { addTeam, teams, isReady } = useLocalStore();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -27,30 +26,15 @@ export default function LoginPage() {
     }
   }, [auth, authLoading, router]);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    // Hardcoded credentials: test123 / testing
-    const isValid = teamName === 'test123' && password === 'testing';
+    const team = await localApi.loginTeam(teamName, password);
 
-    if (isValid) {
-      const teamId = 'team-test123';
-      
-      // Initialize team in local store if it doesn't exist
-      if (isReady && !teams.find(t => t.id === teamId)) {
-        addTeam({
-          id: teamId,
-          teamName: teamName,
-          currentLevel: 1,
-          flagCount: 0,
-          penaltyUntil: null
-        });
-      }
-
-      loginTeam(teamId, teamName);
+    if (team) {
+      loginTeam(team.id, team.teamName);
       toast({ title: "Decryption Successful", description: `Connection established.` });
-      // Navigation is handled by the useEffect
     } else {
       toast({ 
         variant: "destructive", 

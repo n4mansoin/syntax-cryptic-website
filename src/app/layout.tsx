@@ -2,6 +2,7 @@ import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
 import { AuthProvider } from '@/lib/auth-store';
+import { LocalStoreProvider } from '@/lib/local-store';
 
 export const metadata: Metadata = {
   title: 'INTRA SYNTAX CRYPTIC',
@@ -25,8 +26,10 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <AuthProvider>
-          {children}
-          <Toaster />
+          <LocalStoreProvider>
+            {children}
+            <Toaster />
+          </LocalStoreProvider>
         </AuthProvider>
       </body>
     </html>
