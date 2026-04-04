@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { 
-  BarChart3, Lightbulb, Loader2, Plus, Flag, Activity, MousePointer2, Timer, Clock
+  BarChart3, Lightbulb, Loader2, Plus, Flag, Activity, MousePointer2, Timer, Clock, X
 } from 'lucide-react';
 import { useLocalStore } from '@/lib/local-store';
 import { Input } from '@/components/ui/input';
@@ -148,6 +148,11 @@ export default function AdminDashboard() {
     refresh();
   };
 
+  const handleRemovePenalty = (teamId: string) => {
+    localApi.removePenalty(teamId);
+    refresh();
+  };
+
   const getRequestsForLevel = (levelId: string) => {
     return hintRequests.filter(r => r.levelId === levelId).length;
   };
@@ -265,7 +270,18 @@ export default function AdminDashboard() {
                   <span className="font-bold text-sm text-white">{team.teamName}</span>
                   <div className="flex items-center gap-3">
                     <span className="text-[10px] text-destructive font-mono uppercase tracking-widest">Flags: {team.flagCount}</span>
-                    <PenaltyTimer until={team.penaltyUntil} />
+                    <div className="flex items-center gap-2">
+                      <PenaltyTimer until={team.penaltyUntil} />
+                      {team.penaltyUntil && new Date(team.penaltyUntil) > new Date() && (
+                        <button 
+                          onClick={() => handleRemovePenalty(team.id)}
+                          className="text-destructive/60 hover:text-destructive transition-colors p-0.5 rounded-full hover:bg-destructive/10"
+                          title="Remove Penalty"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
                 

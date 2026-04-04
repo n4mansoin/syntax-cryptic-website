@@ -203,6 +203,15 @@ class LocalApiService {
     }
   }
 
+  removePenalty(teamId: string) {
+    const teams = this.getStore<Team[]>(STORAGE_KEYS.TEAMS, []);
+    const teamIndex = teams.findIndex(t => t.id === teamId);
+    if (teamIndex !== -1) {
+      teams[teamIndex].penaltyUntil = null;
+      this.saveStore(STORAGE_KEYS.TEAMS, teams);
+    }
+  }
+
   initializeData(initialLevels: Level[], initialTeams: Team[]) {
     if (!localStorage.getItem(STORAGE_KEYS.LEVELS)) {
       this.saveStore(STORAGE_KEYS.LEVELS, initialLevels);
