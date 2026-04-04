@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -13,30 +14,25 @@ import { useToast } from '@/hooks/use-toast';
 
 export default function AdminLoginPage() {
   const [step, setStep] = useState<1 | 2>(1);
-  const [adminName, setAdminName] = useState('admin');
+  const [adminName, setAdminName] = useState('');
   const [password, setPassword] = useState('');
   const [totp, setTotp] = useState('');
   const [loading, setLoading] = useState(false);
-  const [isMounted, setIsMounted] = useState(false);
   const router = useRouter();
-  const { loginAdmin, verify2FA, auth } = useAppAuth();
+  const { loginAdmin, verify2FA, auth, loading: authLoading } = useAppAuth();
   const { toast } = useToast();
 
   useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (isMounted && auth.adminId && auth.is2FAVerified) {
+    if (!authLoading && auth.adminId && auth.is2FAVerified) {
       router.push('/admin/dashboard');
     }
-  }, [auth, isMounted, router]);
+  }, [auth, authLoading, router]);
 
   const handleInitialLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     
-    // Updated credentials: admin / admin
+    // Credentials: admin / admin
     const isValid = (adminName.toLowerCase() === 'admin' || adminName.toLowerCase() === 'admins') && password === 'admin';
     
     if (isValid) {
@@ -44,7 +40,7 @@ export default function AdminLoginPage() {
       setStep(2);
       toast({ title: "Phase 1 Complete", description: "Identity recognized. Awaiting 2FA." });
     } else {
-      toast({ variant: "destructive", title: "Access Denied", description: "Invalid admin credentials. Use admin/admin." });
+      toast({ variant: "destructive", title: "Access Denied", description: "Invalid admin credentials (admin / admin)." });
     }
     setLoading(false);
   };
@@ -62,8 +58,6 @@ export default function AdminLoginPage() {
     }
     setLoading(false);
   };
-
-  if (!isMounted) return null;
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">

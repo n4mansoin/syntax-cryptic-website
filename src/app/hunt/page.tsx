@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -13,7 +14,7 @@ import { useLocalStore } from '@/lib/local-store';
 
 export default function HuntPage() {
   const { auth, loading: authLoading } = useAuth();
-  const { levels, teams, hints, hintRequests, updateTeam, addHintRequest, isReady } = useLocalStore();
+  const { levels, teams, hints, hintRequests, updateTeam, addHintRequest, isReady, addTeam } = useLocalStore();
   const router = useRouter();
   const { toast } = useToast();
   
@@ -31,6 +32,22 @@ export default function HuntPage() {
       router.push('/login');
     }
   }, [auth, authLoading, router, isMounted]);
+
+  // Ensure the team object exists in local storage
+  useEffect(() => {
+    if (isMounted && isReady && auth.teamId && auth.teamName) {
+      const existing = teams.find(t => t.id === auth.teamId);
+      if (!existing) {
+        addTeam({
+          id: auth.teamId,
+          teamName: auth.teamName,
+          currentLevel: 1,
+          flagCount: 0,
+          penaltyUntil: null
+        });
+      }
+    }
+  }, [isMounted, isReady, auth, teams, addTeam]);
 
   const teamData = teams.find(t => t.id === auth.teamId);
   const currentLevelNumber = teamData?.currentLevel || 1;
@@ -140,7 +157,8 @@ export default function HuntPage() {
               <AlertCircle className="w-16 h-16 text-yellow-500/50" />
               <div className="space-y-2">
                 <h3 className="text-xl font-bold uppercase">No Signals Found</h3>
-                <p className="text-sm text-muted-foreground">Level data mismatch. Please contact support.</p>
+                <p className="text-sm text-muted-foreground">Encryption level synchronization failed. Initializing local backup...</p>
+                <Button onClick={() => window.location.reload()} className="mt-4">Reconnect Uplink</Button>
               </div>
             </div>
           ) : (

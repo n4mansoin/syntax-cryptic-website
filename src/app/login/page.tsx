@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth as useAppStore } from '@/lib/auth-store';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -17,22 +18,28 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const { loginTeam } = useAppStore();
-  const { addTeam, teams } = useLocalStore();
+  const { loginTeam, auth, loading: authLoading } = useAppStore();
+  const { addTeam, teams, isReady } = useLocalStore();
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (!authLoading && auth.teamId) {
+      router.push('/hunt');
+    }
+  }, [auth, authLoading, router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    // Hardcoded credentials for the prototype
+    // Hardcoded credentials: test123 / testing
     const isValid = teamName.toLowerCase() === 'test123' && password === 'testing';
 
     if (isValid) {
       const teamId = 'team-test123';
-      const existingTeam = teams.find(t => t.id === teamId);
       
-      if (!existingTeam) {
+      // Initialize team in local store if it doesn't exist
+      if (isReady && !teams.find(t => t.id === teamId)) {
         addTeam({
           id: teamId,
           teamName: teamName,
@@ -49,7 +56,7 @@ export default function LoginPage() {
       toast({ 
         variant: "destructive", 
         title: "Authentication Failed", 
-        description: "Invalid credentials. Use test123/testing." 
+        description: "Invalid credentials. Use test123 / testing." 
       });
     }
     setLoading(false);

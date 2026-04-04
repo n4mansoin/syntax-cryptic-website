@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -41,14 +42,14 @@ const INITIAL_LEVELS: Level[] = [
 ];
 
 const STORAGE_KEYS = {
-  LEVELS: 'intra_syntax_levels',
-  TEAMS: 'intra_syntax_teams',
-  HINTS: 'intra_syntax_hints',
-  HINT_REQUESTS: 'intra_syntax_hint_requests',
+  LEVELS: 'intra_syntax_levels_v3',
+  TEAMS: 'intra_syntax_teams_v3',
+  HINTS: 'intra_syntax_hints_v3',
+  HINT_REQUESTS: 'intra_syntax_hint_requests_v3',
 };
 
 export function useLocalStore() {
-  const [levels, setLevels] = useState<Level[]>([]);
+  const [levels, setLevels] = useState<Level[]>(INITIAL_LEVELS);
   const [teams, setTeams] = useState<Team[]>([]);
   const [hints, setHints] = useState<Hint[]>([]);
   const [hintRequests, setHintRequests] = useState<HintRequest[]>([]);
@@ -57,7 +58,13 @@ export function useLocalStore() {
   useEffect(() => {
     const load = (key: string, initial: any) => {
       const stored = localStorage.getItem(key);
-      return stored ? JSON.parse(stored) : initial;
+      if (!stored) return initial;
+      try {
+        const parsed = JSON.parse(stored);
+        return Array.isArray(parsed) && parsed.length > 0 ? parsed : initial;
+      } catch {
+        return initial;
+      }
     };
 
     setLevels(load(STORAGE_KEYS.LEVELS, INITIAL_LEVELS));
