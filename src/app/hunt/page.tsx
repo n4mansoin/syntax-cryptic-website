@@ -24,7 +24,7 @@ export default function HuntPage() {
   const [showHint, setShowHint] = useState(false);
   const [levelTimer, setLevelTimer] = useState(0);
 
-  // Mock levels data - Expanded to 5 levels
+  // Mock levels data - 5 levels
   const levels = [
     { id: 1, question: "The beginning of everything, the zero in the binary. What is the first color seen by the void?", hint: "It reflects all, yet holds none." },
     { id: 2, question: "I speak without a mouth and hear without ears. I have no body, but I come alive with wind. What am I?", hint: "A sound of your own voice." },
@@ -69,7 +69,11 @@ export default function HuntPage() {
           router.push('/leaderboard');
         }
       } else {
-        toast({ variant: "destructive", title: "Access Denied", description: "The provided decryption key is incorrect." });
+        toast({ 
+          variant: "destructive", 
+          title: "Incorrect Answer", 
+          description: "Try again or check for hints." 
+        });
       }
       setSubmitting(false);
     }, 800);
@@ -77,9 +81,7 @@ export default function HuntPage() {
 
   if (loading || !auth.teamId) return null;
 
-  // Progress formula: (solved levels / total levels) * 100
-  // Start of Level 1 (0 solved) = 0%
-  // Start of Level 2 (1 solved) = 20%
+  // Progress formula as requested: Level 1 start = 0%, increments by 20%
   const progressPercentage = Math.round(((currentLevel - 1) / levels.length) * 100);
 
   return (
