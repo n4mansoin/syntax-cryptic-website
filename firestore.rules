@@ -1,147 +1,59 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * CRYPTIC HUNT SECURITY RULES - PROTOTYPING MODE
+     * CRYPTIC HUNT RULES - FLAT STRUCTURE & STRICT SECURITY
      * 
      * philosophy:
-     * This ruleset implements a robust, multi-tier authorization model for a cryptic hunt competition. 
-     * It prioritizes strict access control based on user identity (UID) and administrative roles 
-     * while maintaining flexibility in data schema to support rapid iteration.
-     * 
-     * data structure:
-     * - /teams/{teamId}: Root team profiles (Owner-Read, Admin-Write).
-     * - /levels/{levelId}: Shared game levels (Authenticated-Read, Admin-Write).
-     * - /teams/{teamId}/attempts: Private submission logs (Owner-Read, Admin-Write).
-     * - /teams/{teamId}/hintRequests: Team-initiated requests for assistance (Owner-Create/Read, Admin-Read/Update).
-     * - /adminLogs: System audit logs (Admin-Only).
-     * 
-     * key security decisions:
-     * - Path-Based Ownership: Relies on teamId being part of the document path to verify ownership without extra lookups.
-     * - DBAC (Document-Based Access Control): Administrator permissions are verified by the existence of a record 
-     *   in the 'roles_admin' collection.
-     * - Relational Integrity: On creation of subcollection items (like hintRequests), rules enforce that internal 
-     *   linkage (e.g., teamId field) matches the authorized path.
-     * - Visibility Gates: Levels and Hints are conditionally accessible based on the 'isReleased' status or 
-     *   the team's current progress.
+     * - No unauthenticated access.
+     * - Flat collections for simplified querying and rules.
+     * - Admin roles via Custom Claims (request.auth.token.admin == true).
+     * - Client-side writes blocked (handled via backend/admin).
      */
-
-    // --- GLOBAL HELPER FUNCTIONS ---
 
     function isSignedIn() {
       return request.auth != null;
     }
 
     function isAdmin() {
-      return isSignedIn() && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+      return isSignedIn() && request.auth.token.admin == true;
     }
 
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // Removed unused functions: isExistingOwner and getTeamData, as identified by the linter.
-
     // --- COLLECTION RULES ---
 
-    /**
-     * @description Access rules for the 'roles_admin' collection, which defines the system administrators.
-     * @path /roles_admin/{adminId}
-     * @allow get (isSignedIn), list (isAdmin)
-     * @deny create, update, delete (Always denied via rules; managed via console or deployment).
-     */
-    match /roles_admin/{adminId} {
-      allow get: if isSignedIn();
-      allow list: if isAdmin();
-      allow create, update, delete: if false;
-    }
-
-    /**
-     * @description Manages team profile documents. Teams can read their own profiles. Admins manage updates.
-     * @path /teams/{teamId}
-     * @allow get, list (isOwner(teamId) || isAdmin)
-     * @allow create (isOwner(teamId)) - Allows teams to register themselves.
-     * @allow update, delete (isAdmin)
-     * @principle Restricts profile visibility to the team owner and administrators.
-     */
+    // Teams: Owners read own, Admins read all. Writes blocked for client.
     match /teams/{teamId} {
-      allow get, list: if isOwner(teamId) || isAdmin();
-      allow create: if isOwner(teamId);
-      allow update, delete: if isAdmin();
-
-      /**
-       * @description Private attempt logs. Teams can see their history; admins audit.
-       * @path /teams/{teamId}/attempts/{attemptId}
-       * @allow get, list (isOwner(teamId) || isAdmin)
-       * @allow create, update, delete (isAdmin) - Logic handled by Cloud Functions.
-       * @principle Ownership-based path isolation.
-       */
-      match /attempts/{attemptId} {
-        allow get, list: if isOwner(teamId) || isAdmin();
-        allow create, update, delete: if isAdmin();
-      }
-
-      /**
-       * @description Suspicious activity flags. Visible only to administrators.
-       * @path /teams/{teamId}/flags/{flagId}
-       * @allow get, list, create, update, delete (isAdmin)
-       * @deny (isSignedIn but not Admin)
-       * @principle Admin-only visibility for security-sensitive tracking.
-       */
-      match /flags/{flagId} {
-        allow get, list, create, update, delete: if isAdmin();
-      }
-
-      /**
-       * @description Requests for cryptic hints sent to the admin dashboard.
-       * @path /teams/{teamId}/hintRequests/{hintRequestId}
-       * @allow get, list (isOwner(teamId) || isAdmin)
-       * @allow create (isOwner(teamId) && request.resource.data.teamId == teamId)
-       * @allow update, delete (isAdmin)
-       * @principle Teams initiate requests; Admins review and respond.
-       */
-      match /hintRequests/{hintRequestId} {
-        allow get, list: if isOwner(teamId) || isAdmin();
-        allow create: if isOwner(teamId) && request.resource.data.teamId == teamId;
-        allow update, delete: if isAdmin();
-      }
+      allow read: if isOwner(teamId) || isAdmin();
+      allow write: if false; 
     }
 
-    /**
-     * @description Stores cryptic hunt level definitions.
-     * @path /levels/{levelId}
-     * @allow get (isSignedIn)
-     * @allow list (isSignedIn)
-     * @allow create, update, delete (isAdmin)
-     * @principle Levels are shared content for all participants.
-     */
+    // Levels: Readable by all authenticated users. Writes blocked.
     match /levels/{levelId} {
-      allow get, list: if isSignedIn();
-      allow create, update, delete: if isAdmin();
-
-      /**
-       * @description Hints associated with specific levels.
-       * @path /levels/{levelId}/hints/{hintId}
-       * @allow get, list (isAdmin || (isSignedIn && resource.data.isReleased == true))
-       * @allow create, update, delete (isAdmin)
-       * @principle Content is gated by the 'isReleased' flag until admins authorize visibility.
-       */
-      match /hints/{hintId} {
-        allow get, list: if isAdmin() || (isSignedIn() && resource.data.isReleased == true);
-        allow create, update, delete: if isAdmin();
-      }
+      allow read: if isSignedIn();
+      allow write: if false;
     }
 
-    /**
-     * @description Audit logs of administrative actions.
-     * @path /adminLogs/{logId}
-     * @allow get, list, create, update, delete (isAdmin)
-     * @deny (isOwner)
-     * @principle Restricted strictly to administrative accounts for compliance and auditing.
-     */
-    match /adminLogs/{logId} {
-      allow get, list, create, update, delete: if isAdmin();
+    // Hints: Readable by Admins, or Users if released. Writes blocked.
+    match /hints/{hintId} {
+      allow read: if isAdmin() || (isSignedIn() && resource.data.isReleased == true);
+      allow write: if false;
     }
+
+    // HintRequests: Owners read own, Admins read all. Writes blocked for client.
+    match /hintRequests/{requestId} {
+      allow read: if isAdmin() || (isSignedIn() && resource.data.teamId == request.auth.uid);
+      allow write: if false;
+    }
+
+    // Attempts, Flags, AdminLogs: Admin only.
+    match /attempts/{id} { allow read, write: if isAdmin(); }
+    match /flags/{id} { allow read, write: if isAdmin(); }
+    match /adminLogs/{id} { allow read, write: if isAdmin(); }
   }
 }
