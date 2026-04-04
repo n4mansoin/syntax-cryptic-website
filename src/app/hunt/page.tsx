@@ -7,10 +7,10 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
-import { Terminal, Send, Timer, HelpCircle, Lightbulb, CheckCircle2, Loader2 } from 'lucide-react';
+import { Terminal, Send, Timer, HelpCircle, Lightbulb, CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useCollection, useMemoFirebase, useDoc, useUser } from '@/firebase';
-import { collection, query, orderBy, where, doc } from 'firebase/firestore';
+import { collection, query, orderBy, where, doc, updateDoc } from 'firebase/firestore';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 export default function HuntPage() {
@@ -104,19 +104,31 @@ export default function HuntPage() {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!answer.trim() || !db || !user?.uid || !currentLevel) return;
+    if (!answer.trim() || !db || !user?.uid || !currentLevel || !teamDocRef) return;
     setSubmitting(true);
 
-    setTimeout(() => {
+    const isCorrect = answer.toUpperCase().trim() === currentLevel.answer.toUpperCase().trim();
+
+    if (isCorrect) {
+      try {
+        await updateDoc(teamDocRef, {
+          currentLevel: currentLevelNumber + 1
+        });
+        toast({ title: "Decryption Successful", description: "Advancing to next level." });
+        setAnswer('');
+      } catch (error: any) {
+        toast({ variant: "destructive", title: "Transmission Error", description: "Failed to update progress." });
+      }
+    } else {
       toast({ 
         variant: "destructive", 
         title: "Incorrect Answer", 
         description: "Try again or analyze the data patterns." 
       });
-      setSubmitting(false);
-    }, 800);
+    }
+    setSubmitting(false);
   };
 
   if (!isMounted || isUserLoading) {
@@ -129,7 +141,7 @@ export default function HuntPage() {
 
   if (!user) return null;
 
-  // Level 1: 0%, Level 2: 20%, Level 3: 40%, Level 4: 60%, Level 5: 80%, Complete: 100%
+  // Level 1: 0%, Level 2: 20%, Level 3: 40%, Level 4: 60%, Level 5: 80%, Level 6+: 100%
   const progressPercentage = Math.max(0, Math.min(100, (currentLevelNumber - 1) * 20));
 
   return (
@@ -143,7 +155,9 @@ export default function HuntPage() {
               <Terminal className="w-6 h-6 text-primary" />
             </div>
             <div>
-              <h2 className="text-2xl font-headline font-bold text-white uppercase tracking-tighter">Level 0{currentLevelNumber}</h2>
+              <h2 className="text-2xl font-headline font-bold text-white uppercase tracking-tighter">
+                {currentLevelNumber > 5 ? "Victory" : `Level 0${currentLevelNumber}`}
+              </h2>
               <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-mono uppercase tracking-[0.2em]">
                 <Timer className="w-3 h-3" /> Time: {formatTime(levelTimer)}
               </div>
@@ -164,6 +178,25 @@ export default function HuntPage() {
               <Loader2 className="w-12 h-12 animate-spin text-primary opacity-20" />
               <p className="text-[10px] uppercase tracking-[0.4em] font-mono text-white/20">Establishing Secure Uplink...</p>
             </div>
+          ) : currentLevelNumber > 5 ? (
+            <div className="flex flex-col items-center gap-6 py-12">
+              <CheckCircle2 className="w-20 h-20 text-primary" />
+              <h3 className="text-4xl font-headline font-bold uppercase tracking-tighter">Signal Decrypted</h3>
+              <p className="text-muted-foreground font-mono text-sm">Mission Complete. You have breached the final layer.</p>
+            </div>
+          ) : !currentLevel ? (
+            <div className="flex flex-col items-center gap-6 py-12 text-center max-w-md">
+              <AlertCircle className="w-16 h-16 text-yellow-500/50" />
+              <div className="space-y-2">
+                <h3 className="text-xl font-bold uppercase">No Signals Found</h3>
+                <p className="text-sm text-muted-foreground">The cryptic transmission hasn't been initialized yet. If you are an admin, please visit the setup portal.</p>
+              </div>
+              {user.email === 'admins@intra-syntax.com' && (
+                <Button onClick={() => router.push('/admin/setup')} variant="outline" className="border-primary/20 text-primary hover:bg-primary/10">
+                  INITIALIZE DATABASE
+                </Button>
+              )}
+            </div>
           ) : (
             <>
               <div className="relative w-full max-w-2xl">
@@ -175,56 +208,52 @@ export default function HuntPage() {
                 </p>
               </div>
 
-              {currentLevel && (
-                <form onSubmit={handleSubmit} className="w-full max-w-lg space-y-6">
-                  <Input 
-                    value={answer}
-                    onChange={(e) => setAnswer(e.target.value)}
-                    placeholder="INPUT DECRYPTION KEY"
-                    className="h-16 text-xl text-center bg-card border-white/5 focus:border-primary font-mono uppercase tracking-[0.3em] rounded-xl"
-                  />
-                  <Button disabled={submitting} type="submit" className="w-full h-14 text-lg font-bold bg-primary hover:bg-primary/90 transition-all rounded-xl group">
-                    {submitting ? "VERIFYING..." : "EXECUTE SUBMISSION"}
-                    {!submitting && <Send className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />}
-                  </Button>
-                </form>
-              )}
+              <form onSubmit={handleSubmit} className="w-full max-w-lg space-y-6">
+                <Input 
+                  value={answer}
+                  onChange={(e) => setAnswer(e.target.value)}
+                  placeholder="INPUT DECRYPTION KEY"
+                  className="h-16 text-xl text-center bg-card border-white/5 focus:border-primary font-mono uppercase tracking-[0.3em] rounded-xl"
+                />
+                <Button disabled={submitting} type="submit" className="w-full h-14 text-lg font-bold bg-primary hover:bg-primary/90 transition-all rounded-xl group">
+                  {submitting ? "VERIFYING..." : "EXECUTE SUBMISSION"}
+                  {!submitting && <Send className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />}
+                </Button>
+              </form>
 
-              {currentLevel && (
-                <div className="w-full max-w-lg space-y-4">
-                  {!hasRequestedHint ? (
-                    <Button 
-                      variant="ghost" 
-                      onClick={handleRequestHint}
-                      className="w-full text-white/20 hover:text-primary hover:bg-primary/5 text-xs font-mono uppercase tracking-widest h-12 transition-all border border-transparent hover:border-primary/10"
-                    >
-                      <Lightbulb className="w-4 h-4 mr-2" /> Request Cryptic Hint
-                    </Button>
-                  ) : (
-                    <div className="p-6 bg-primary/5 border border-primary/20 rounded-xl animate-scale-up text-center space-y-4">
-                      <div className="flex items-center justify-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-primary" />
-                        <span className="text-[10px] text-primary uppercase font-bold tracking-[0.3em]">Status: Hint Requested</span>
-                      </div>
-                      
-                      {releasedHints && releasedHints.length > 0 ? (
-                        <div className="space-y-2 text-left">
-                          <p className="text-[10px] uppercase font-bold text-primary/70">Released Hints:</p>
-                          {releasedHints.map((hint) => (
-                            <p key={hint.id} className="text-sm font-body text-white/90 italic p-3 bg-white/[0.02] border border-white/5 rounded-lg">
-                              "{hint.hintText}"
-                            </p>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-[10px] text-primary/50 uppercase font-mono tracking-widest">
-                          Awaiting administrator authorization...
-                        </p>
-                      )}
+              <div className="w-full max-w-lg space-y-4">
+                {!hasRequestedHint ? (
+                  <Button 
+                    variant="ghost" 
+                    onClick={handleRequestHint}
+                    className="w-full text-white/20 hover:text-primary hover:bg-primary/5 text-xs font-mono uppercase tracking-widest h-12 transition-all border border-transparent hover:border-primary/10"
+                  >
+                    <Lightbulb className="w-4 h-4 mr-2" /> Request Cryptic Hint
+                  </Button>
+                ) : (
+                  <div className="p-6 bg-primary/5 border border-primary/20 rounded-xl animate-scale-up text-center space-y-4">
+                    <div className="flex items-center justify-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-primary" />
+                      <span className="text-[10px] text-primary uppercase font-bold tracking-[0.3em]">Status: Hint Requested</span>
                     </div>
-                  )}
-                </div>
-              )}
+                    
+                    {releasedHints && releasedHints.length > 0 ? (
+                      <div className="space-y-2 text-left">
+                        <p className="text-[10px] uppercase font-bold text-primary/70">Released Hints:</p>
+                        {releasedHints.map((hint) => (
+                          <p key={hint.id} className="text-sm font-body text-white/90 italic p-3 bg-white/[0.02] border border-white/5 rounded-lg">
+                            "{hint.hintText}"
+                          </p>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[10px] text-primary/50 uppercase font-mono tracking-widest">
+                        Awaiting administrator authorization...
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
             </>
           )}
         </div>

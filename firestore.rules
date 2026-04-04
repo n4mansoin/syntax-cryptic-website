@@ -8,14 +8,15 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      // In production, use custom claims: request.auth.token.admin == true
-      // For this prototype, we'll allow access if authenticated for the purpose of the control panel
-      return isAuthenticated();
+      // In a production environment with Firebase Auth Custom Claims:
+      // return request.auth != null && request.auth.token.admin == true;
+      // For this prototype, we'll allow administrative access if the UID is known or the email matches.
+      return isAuthenticated() && (request.auth.token.email == "admins@intra-syntax.com" || request.auth.uid == "admin-root");
     }
 
     match /teams/{teamId} {
       allow read: if isAuthenticated() && (request.auth.uid == teamId || isAdmin());
-      allow write: if isAuthenticated() && request.auth.uid == teamId;
+      allow write: if isAdmin() || (isAuthenticated() && request.auth.uid == teamId);
     }
 
     match /levels/{levelId} {
@@ -39,11 +40,6 @@ service cloud.firestore {
     }
 
     match /flags/{flagId} {
-      allow read: if isAdmin();
-      allow write: if isAdmin();
-    }
-
-    match /adminLogs/{logId} {
       allow read: if isAdmin();
       allow write: if isAdmin();
     }
