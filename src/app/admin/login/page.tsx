@@ -1,8 +1,9 @@
+
 'use client';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/lib/auth-store';
+import { useAuth as useAppStore } from '@/lib/auth-store';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -10,6 +11,8 @@ import { Label } from '@/components/ui/label';
 import { Navbar } from '@/components/Navbar';
 import { ShieldAlert, ShieldCheck, Fingerprint, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/firebase';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 
 export default function AdminLoginPage() {
   const [step, setStep] = useState<1 | 2>(1);
@@ -17,23 +20,30 @@ export default function AdminLoginPage() {
   const [totp, setTotp] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const { loginAdmin, verify2FA } = useAuth();
+  const { loginAdmin, verify2FA } = useAppStore();
+  const firebaseAuth = useAuth();
   const { toast } = useToast();
 
-  const handleInitialLogin = (e: React.FormEvent) => {
+  const handleInitialLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    // Simulate administrative verification
-    setTimeout(() => {
-      // Updated admin password
-      if (password === 'qwertyhbvcdfgh') {
-        loginAdmin('admin-root');
-        setStep(2);
-      } else {
-        toast({ variant: "destructive", title: "Access Denied", description: "Incorrect administrative credentials." });
-      }
+    
+    // Admin credentials
+    const adminEmail = 'admin@intra-syntax.com';
+    
+    try {
+      // Authenticate with Firebase
+      // Note: Admin roles usually require custom claims which are set on the backend
+      await signInWithEmailAndPassword(firebaseAuth, adminEmail, password);
+      
+      loginAdmin('admin-root');
+      setStep(2);
+      toast({ title: "Administrative Access", description: "Phase 1 verification complete. Awaiting TOTP." });
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Access Denied", description: "Incorrect administrative credentials." });
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
 
   const handle2FA = (e: React.FormEvent) => {

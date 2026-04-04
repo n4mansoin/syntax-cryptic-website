@@ -1,8 +1,9 @@
+
 'use client';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/lib/auth-store';
+import { useAuth as useAppStore } from '@/lib/auth-store';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -10,42 +11,56 @@ import { Label } from '@/components/ui/label';
 import { Navbar } from '@/components/Navbar';
 import { Terminal, Lock, User, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/firebase';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 
 export default function LoginPage() {
   const [teamName, setTeamName] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const { loginTeam } = useAuth();
+  const { loginTeam } = useAppStore();
+  const firebaseAuth = useAuth();
   const { toast } = useToast();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     
-    // Simulate API delay and validation
-    setTimeout(() => {
-      // Redirect to admin portal if 'admins' is entered as team name
-      if (teamName === 'admins') {
-        toast({ title: "Admin login detected", description: "Redirecting to admin authentication..." });
-        router.push('/admin/login');
-        return;
+    // In a real cryptic hunt, teams usually have pre-assigned credentials
+    // We'll use a standardized email format for the Firebase Auth system
+    const email = `${teamName.toLowerCase().trim()}@intra-syntax.com`;
+
+    try {
+      // Attempt to sign in to Firebase
+      let userCredential;
+      try {
+        userCredential = await signInWithEmailAndPassword(firebaseAuth, email, password);
+      } catch (authError: any) {
+        // For the prototype, if the team doesn't exist, we'll auto-register them
+        if (authError.code === 'auth/user-not-found') {
+          userCredential = await createUserWithEmailAndPassword(firebaseAuth, email, password);
+        } else {
+          throw authError;
+        }
       }
 
-      // Updated team credentials
-      if (teamName === 'test123' && password === 'testing') {
-        loginTeam('team-1', teamName);
-        toast({ title: "Welcome back", description: `Team ${teamName} authenticated successfully.` });
+      if (userCredential.user) {
+        // Sync local UI state
+        loginTeam(userCredential.user.uid, teamName);
+        toast({ title: "Decryption Successful", description: `Team ${teamName} connection established.` });
         router.push('/hunt');
-      } else {
-        toast({ 
-          variant: "destructive", 
-          title: "Authentication Failed", 
-          description: "Invalid team name or password." 
-        });
       }
+    } catch (error: any) {
+      console.error("Auth Error:", error);
+      toast({ 
+        variant: "destructive", 
+        title: "Authentication Failed", 
+        description: error.message || "Invalid team name or access key." 
+      });
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
 
   return (

@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { Navbar } from '@/components/Navbar';
-import { useAuth as useAppAuth } from '@/lib/auth-store';
+import { useAuth as useAppStore } from '@/lib/auth-store';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,7 +16,7 @@ import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 export default function HuntPage() {
   const { user, isUserLoading } = useUser();
-  const { auth } = useAppAuth();
+  const { auth: appStore } = useAppStore();
   const router = useRouter();
   const { toast } = useToast();
   const db = useFirestore();
@@ -30,7 +30,7 @@ export default function HuntPage() {
     setIsMounted(true);
   }, []);
 
-  // Guard: Only fetch team document if user is authenticated
+  // Guard: Only fetch team document if user is authenticated via Firebase
   const teamDocRef = useMemoFirebase(() => {
     if (!db || !user?.uid) return null;
     return doc(db, 'teams', user.uid);
@@ -47,7 +47,7 @@ export default function HuntPage() {
   const currentLevelNumber = teamData?.currentLevel || 1;
   const currentLevel = levels?.find(l => l.order === currentLevelNumber);
 
-  // Guard: Fetch hint requests for this team from global flat collection
+  // Guard: Fetch hint requests for this team
   const hintRequestsQuery = useMemoFirebase(() => {
     if (!db || !user?.uid || !currentLevel?.id) return null;
     return query(
@@ -110,7 +110,6 @@ export default function HuntPage() {
     if (!answer.trim() || !db || !user?.uid || !currentLevel) return;
     setSubmitting(true);
 
-    // Mock verification for prototype
     setTimeout(() => {
       toast({ 
         variant: "destructive", 
@@ -121,7 +120,7 @@ export default function HuntPage() {
     }, 800);
   };
 
-  if (!isMounted || isUserLoading || teamLoading || levelsLoading) {
+  if (!isMounted || isUserLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -129,10 +128,12 @@ export default function HuntPage() {
     );
   }
 
-  if (!user) return null;
+  if (!user) {
+    return null; // The useEffect will handle redirect
+  }
 
-  const totalLevels = 5;
-  const progressPercentage = Math.min(100, (currentLevelNumber - 1) * 20);
+  // Calculate percentage: Level 1 = 0%, Level 2 = 20%, etc.
+  const progressPercentage = Math.max(0, Math.min(100, (currentLevelNumber - 1) * 20));
 
   return (
     <div className="min-h-screen bg-background flex flex-col p-6 pt-24 items-center">
@@ -161,67 +162,76 @@ export default function HuntPage() {
         </div>
 
         <div className="flex flex-col items-center space-y-12 py-12">
-          <div className="relative w-full max-w-2xl">
-            <div className="absolute -left-8 -top-8 text-primary/10 select-none">
-              <HelpCircle className="w-24 h-24" />
+          {teamLoading || levelsLoading ? (
+            <div className="flex flex-col items-center gap-4">
+              <Loader2 className="w-12 h-12 animate-spin text-primary opacity-20" />
+              <p className="text-[10px] uppercase tracking-[0.4em] font-mono text-white/20">Establishing Secure Uplink...</p>
             </div>
-            <p className="text-2xl md:text-3xl font-body leading-relaxed text-center text-white/90">
-              {currentLevel?.question || "Awaiting decryption signal..."}
-            </p>
-          </div>
-
-          {currentLevel && (
-            <form onSubmit={handleSubmit} className="w-full max-w-lg space-y-6">
-              <div className="relative group">
-                <Input 
-                  value={answer}
-                  onChange={(e) => setAnswer(e.target.value)}
-                  placeholder="INPUT DECRYPTION KEY"
-                  className="h-16 text-xl text-center bg-card border-white/5 focus:border-primary focus:ring-primary/20 transition-all font-mono uppercase tracking-[0.3em] rounded-xl"
-                />
+          ) : (
+            <>
+              <div className="relative w-full max-w-2xl">
+                <div className="absolute -left-8 -top-8 text-primary/10 select-none">
+                  <HelpCircle className="w-24 h-24" />
+                </div>
+                <p className="text-2xl md:text-3xl font-body leading-relaxed text-center text-white/90">
+                  {currentLevel?.question || "Awaiting decryption signal..."}
+                </p>
               </div>
-              <Button disabled={submitting} type="submit" className="w-full h-14 text-lg font-bold bg-primary hover:bg-primary/90 transition-all rounded-xl group">
-                {submitting ? "VERIFYING..." : "EXECUTE SUBMISSION"}
-                {!submitting && <Send className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />}
-              </Button>
-            </form>
-          )}
 
-          {currentLevel && (
-            <div className="w-full max-w-lg space-y-4">
-              {!hasRequestedHint ? (
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={handleRequestHint}
-                  className="w-full text-white/20 hover:text-primary hover:bg-primary/5 text-xs font-mono uppercase tracking-widest h-12 transition-all border border-transparent hover:border-primary/10"
-                >
-                  <Lightbulb className="w-4 h-4 mr-2" /> Request Cryptic Hint
-                </Button>
-              ) : (
-                <div className="p-6 bg-primary/5 border border-primary/20 rounded-xl animate-scale-up text-center space-y-4">
-                  <div className="flex items-center justify-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-primary" />
-                    <span className="text-[10px] text-primary uppercase font-bold tracking-[0.3em]">Status: Hint Requested</span>
+              {currentLevel && (
+                <form onSubmit={handleSubmit} className="w-full max-w-lg space-y-6">
+                  <div className="relative group">
+                    <Input 
+                      value={answer}
+                      onChange={(e) => setAnswer(e.target.value)}
+                      placeholder="INPUT DECRYPTION KEY"
+                      className="h-16 text-xl text-center bg-card border-white/5 focus:border-primary focus:ring-primary/20 transition-all font-mono uppercase tracking-[0.3em] rounded-xl"
+                    />
                   </div>
-                  
-                  {releasedHints && releasedHints.length > 0 ? (
-                    <div className="space-y-2 text-left">
-                      <p className="text-[10px] uppercase font-bold text-primary/70">Released Hints:</p>
-                      {releasedHints.map((hint, idx) => (
-                        <p key={hint.id} className="text-sm font-body text-white/90 italic">
-                          "{hint.hintText}"
-                        </p>
-                      ))}
-                    </div>
+                  <Button disabled={submitting} type="submit" className="w-full h-14 text-lg font-bold bg-primary hover:bg-primary/90 transition-all rounded-xl group">
+                    {submitting ? "VERIFYING..." : "EXECUTE SUBMISSION"}
+                    {!submitting && <Send className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />}
+                  </Button>
+                </form>
+              )}
+
+              {currentLevel && (
+                <div className="w-full max-w-lg space-y-4">
+                  {!hasRequestedHint ? (
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={handleRequestHint}
+                      className="w-full text-white/20 hover:text-primary hover:bg-primary/5 text-xs font-mono uppercase tracking-widest h-12 transition-all border border-transparent hover:border-primary/10"
+                    >
+                      <Lightbulb className="w-4 h-4 mr-2" /> Request Cryptic Hint
+                    </Button>
                   ) : (
-                    <p className="text-[10px] text-primary/50 uppercase font-mono tracking-widest">
-                      Awaiting administrator authorization...
-                    </p>
+                    <div className="p-6 bg-primary/5 border border-primary/20 rounded-xl animate-scale-up text-center space-y-4">
+                      <div className="flex items-center justify-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-primary" />
+                        <span className="text-[10px] text-primary uppercase font-bold tracking-[0.3em]">Status: Hint Requested</span>
+                      </div>
+                      
+                      {releasedHints && releasedHints.length > 0 ? (
+                        <div className="space-y-2 text-left">
+                          <p className="text-[10px] uppercase font-bold text-primary/70">Released Hints:</p>
+                          {releasedHints.map((hint) => (
+                            <p key={hint.id} className="text-sm font-body text-white/90 italic p-3 bg-white/[0.02] border border-white/5 rounded-lg">
+                              "{hint.hintText}"
+                            </p>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-[10px] text-primary/50 uppercase font-mono tracking-widest">
+                          Awaiting administrator authorization...
+                        </p>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
-            </div>
+            </>
           )}
         </div>
       </div>
