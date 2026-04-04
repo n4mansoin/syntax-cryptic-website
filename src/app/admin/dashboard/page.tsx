@@ -9,19 +9,48 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 import { 
-  BarChart3, Flag, Lightbulb, PlayCircle, ShieldAlert, Activity, 
-  Settings, Users, Clock, Terminal, Search
+  BarChart3, Flag, Lightbulb, PlayCircle, Activity, 
+  Settings, Clock, Search
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, orderBy, doc, collectionGroup } from 'firebase/firestore';
+import { updateDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 export default function AdminDashboard() {
   const { auth, loading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
+  const db = useFirestore();
   
   const [selectedLevel, setSelectedLevel] = useState('1');
   const [hintText, setHintText] = useState('');
+
+  // Fetch all teams for standings
+  const teamsQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return query(collection(db, 'teams'), orderBy('currentLevel', 'desc'));
+  }, [db]);
+  const { data: teamsData } = useCollection(teamsQuery);
+
+  // Fetch all hint requests (using collectionGroup if supported, or individual team fetches)
+  // For standard rules we might need collectionGroup, but let's try mapping if we have small team count
+  // or a central collection if backend.json allowed.
+  // Using collectionGroup 'hintRequests'
+  const allHintRequestsQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return collectionGroup(db, 'hintRequests');
+  }, [db]);
+  const { data: allHintRequests } = useCollection(allHintRequestsQuery);
+
+  // Fetch levels to populate dropdowns and aggregate requests
+  const levelsQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return query(collection(db, 'levels'), orderBy('order', 'asc'));
+  }, [db]);
+  const { data: levels } = useCollection(levelsQuery);
 
   useEffect(() => {
     if (!loading && (!auth.adminId || !auth.is2FAVerified)) {
@@ -30,12 +59,31 @@ export default function AdminDashboard() {
   }, [auth, loading, router]);
 
   const handleReleaseHint = () => {
+    if (!db || !hintText) return;
+    
+    addDocumentNonBlocking(collection(db, 'levels', selectedLevel, 'hints'), {
+      hintText,
+      isReleased: true,
+      levelId: selectedLevel,
+      releasedAt: new Date().toISOString()
+    });
+
     toast({ title: "Hint Released", description: `Hint for Level ${selectedLevel} is now live.` });
     setHintText('');
   };
 
-  const handlePenalty = (team: string) => {
-    toast({ title: "Penalty Applied", description: `45 minute penalty applied to Team ${team}.` });
+  const handlePenalty = (teamId: string) => {
+    if (!db) return;
+    const penaltyUntil = new Date(Date.now() + 45 * 60 * 1000).toISOString();
+    updateDocumentNonBlocking(doc(db, 'teams', teamId), {
+      penaltyUntil,
+      flagCount: (teamsData?.find(t => t.id === teamId)?.flagCount || 0) + 1
+    });
+    toast({ title: "Penalty Applied", description: `45 minute penalty applied.` });
+  };
+
+  const getRequestCountForLevel = (levelId: string) => {
+    return allHintRequests?.filter(req => req.levelId === levelId).length || 0;
   };
 
   if (loading || !auth.adminId || !auth.is2FAVerified) return null;
@@ -71,25 +119,20 @@ export default function AdminDashboard() {
             <CardTitle className="text-sm font-bold uppercase tracking-[0.2em] flex items-center gap-2">
               <BarChart3 className="w-4 h-4 text-primary" /> Live Standings
             </CardTitle>
-            <Button variant="ghost" size="sm" className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Full Report</Button>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              {[
-                { name: "Null Pointers", level: 14, progress: 92 },
-                { name: "Binary Bandits", level: 14, progress: 88 },
-                { name: "Syntax Errors", level: 12, progress: 75 },
-                { name: "V0id_Runners", level: 11, progress: 68 },
-              ].map((team, i) => (
-                <div key={i} className="flex items-center justify-between p-4 bg-white/[0.02] border border-white/5 rounded-xl hover:bg-white/[0.04] transition-all cursor-default group">
+              {teamsData?.map((team, i) => (
+                <div key={team.id} className="flex items-center justify-between p-4 bg-white/[0.02] border border-white/5 rounded-xl hover:bg-white/[0.04] transition-all cursor-default group">
                   <div className="flex items-center gap-4">
-                    <span className="font-mono text-xs text-white/20">0{i+1}</span>
-                    <span className="font-bold text-sm tracking-tight group-hover:text-primary transition-colors">{team.name}</span>
+                    <span className="font-mono text-xs text-white/20">{String(i + 1).padStart(2, '0')}</span>
+                    <span className="font-bold text-sm tracking-tight group-hover:text-primary transition-colors">{team.teamName}</span>
                   </div>
                   <div className="flex items-center gap-6">
-                    <Badge variant="outline" className="border-white/10 text-[10px] px-3 font-mono">LVL {team.level}</Badge>
+                    {team.flagCount > 0 && <Badge variant="destructive" className="text-[8px] h-4">FLAGGED x{team.flagCount}</Badge>}
+                    <Badge variant="outline" className="border-white/10 text-[10px] px-3 font-mono">LVL {team.currentLevel}</Badge>
                     <div className="w-24 h-1.5 bg-white/5 rounded-full overflow-hidden hidden md:block">
-                      <div className="h-full bg-primary" style={{ width: `${team.progress}%` }} />
+                      <div className="h-full bg-primary" style={{ width: `${Math.min(100, (team.currentLevel / (levels?.length || 10)) * 100)}%` }} />
                     </div>
                   </div>
                 </div>
@@ -98,30 +141,28 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
 
-        {/* Flagged Activity */}
+        {/* Hint Requests Aggregation */}
         <Card className="md:col-span-4 bg-card/50 border-white/5 backdrop-blur-xl">
           <CardHeader>
             <CardTitle className="text-sm font-bold uppercase tracking-[0.2em] flex items-center gap-2">
-              <Flag className="w-4 h-4 text-destructive" /> Suspicious Behavior
+              <Lightbulb className="w-4 h-4 text-yellow-500" /> Hint Requests
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {[
-              { team: "Cyber Phantoms", reason: "Rapid Attempt Burst", time: "2m ago" },
-              { team: "Root Access", reason: "Anomalous IP Change", time: "14m ago" },
-            ].map((flag, i) => (
-              <div key={i} className="p-4 bg-destructive/5 border border-destructive/20 rounded-xl space-y-2">
-                <div className="flex justify-between items-start">
-                  <span className="font-bold text-sm text-destructive">{flag.team}</span>
-                  <span className="text-[10px] font-mono text-white/30">{flag.time}</span>
-                </div>
-                <p className="text-[10px] uppercase tracking-widest font-bold text-white/50">{flag.reason}</p>
-                <div className="flex gap-2 pt-2">
-                  <Button variant="ghost" size="sm" className="h-7 text-[9px] bg-white/5 hover:bg-white/10 text-white font-bold uppercase tracking-widest w-full" onClick={() => handlePenalty(flag.team)}>Penalty</Button>
-                  <Button variant="ghost" size="sm" className="h-7 text-[9px] bg-white/5 hover:bg-white/10 text-white font-bold uppercase tracking-widest w-full">Review</Button>
-                </div>
-              </div>
-            ))}
+            <div className="space-y-2">
+              {levels?.map((lvl) => {
+                const count = getRequestCountForLevel(lvl.id);
+                return (
+                  <div key={lvl.id} className="flex items-center justify-between p-3 bg-white/[0.02] rounded-lg border border-white/5">
+                    <span className="text-[10px] font-mono text-white/40 uppercase">LEVEL 0{lvl.order}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-white">{count}</span>
+                      <span className="text-[8px] uppercase tracking-widest text-white/20">Requests</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </CardContent>
         </Card>
 
@@ -129,7 +170,7 @@ export default function AdminDashboard() {
         <Card className="md:col-span-4 bg-card/50 border-white/5 backdrop-blur-xl">
           <CardHeader>
             <CardTitle className="text-sm font-bold uppercase tracking-[0.2em] flex items-center gap-2">
-              <Lightbulb className="w-4 h-4 text-yellow-500" /> Hint Controller
+              <Settings className="w-4 h-4 text-primary" /> Hint Controller
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -140,9 +181,9 @@ export default function AdminDashboard() {
                   <SelectValue placeholder="Level ID" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="1">LEVEL 01</SelectItem>
-                  <SelectItem value="2">LEVEL 02</SelectItem>
-                  <SelectItem value="3">LEVEL 03</SelectItem>
+                  {levels?.map(lvl => (
+                    <SelectItem key={lvl.id} value={lvl.id}>LEVEL 0{lvl.order}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -161,27 +202,30 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
 
-        {/* Simulation Environment */}
+        {/* Flagged Activity (Responsive Actions) */}
         <Card className="md:col-span-4 bg-card/50 border-white/5 backdrop-blur-xl">
           <CardHeader>
             <CardTitle className="text-sm font-bold uppercase tracking-[0.2em] flex items-center gap-2">
-              <PlayCircle className="w-4 h-4 text-blue-500" /> Simulation Env
+              <Flag className="w-4 h-4 text-destructive" /> Suspicious Behavior
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="p-4 bg-blue-500/5 border border-blue-500/20 rounded-xl font-mono text-[10px] leading-relaxed text-blue-200/60">
-              $ run level_3_sim.sh<br/>
-              [OK] Mock Answer Hashing<br/>
-              [OK] State Transition Valid<br/>
-              [!] AI Hint Strength: High
-            </div>
-            <Button variant="outline" className="w-full border-white/5 hover:bg-white/5 font-bold text-xs uppercase tracking-widest h-12">
-              Launch Sandbox
-            </Button>
+            {teamsData?.filter(t => t.flagCount > 0).slice(0, 3).map((team) => (
+              <div key={team.id} className="p-4 bg-destructive/5 border border-destructive/20 rounded-xl space-y-2">
+                <div className="flex justify-between items-start">
+                  <span className="font-bold text-sm text-destructive">{team.teamName}</span>
+                  <Badge variant="outline" className="text-[8px] font-mono border-destructive/30">FLAGGED x{team.flagCount}</Badge>
+                </div>
+                <div className="flex gap-2 pt-2">
+                  <Button variant="ghost" size="sm" className="h-7 text-[9px] bg-white/5 hover:bg-white/10 text-white font-bold uppercase tracking-widest w-full" onClick={() => handlePenalty(team.id)}>Re-Apply Penalty</Button>
+                  <Button variant="ghost" size="sm" className="h-7 text-[9px] bg-white/5 hover:bg-white/10 text-white font-bold uppercase tracking-widest w-full" onClick={() => router.push(`/admin/review/${team.id}`)}>Review</Button>
+                </div>
+              </div>
+            ))}
           </CardContent>
         </Card>
 
-        {/* Activity Logs */}
+        {/* Activity Logs (Real System Simulation) */}
         <Card className="md:col-span-4 bg-card/50 border-white/5 backdrop-blur-xl">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-sm font-bold uppercase tracking-[0.2em] flex items-center gap-2">
@@ -191,18 +235,13 @@ export default function AdminDashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3 font-mono text-[10px]">
-              {[
-                { action: "HINT_RELEASED", meta: "LVL_04", time: "12:44:02" },
-                { action: "TEAM_LOGOUT", meta: "VOID_RUNNERS", time: "12:42:15" },
-                { action: "PENALTY_SET", meta: "ROOT_ACCESS", time: "12:38:55" },
-                { action: "ADMIN_LOGIN", meta: "ROOT_USER", time: "12:35:01" },
-              ].map((log, i) => (
-                <div key={i} className="flex justify-between items-center opacity-60 hover:opacity-100 transition-opacity">
+              {allHintRequests?.slice(0, 5).map((log, i) => (
+                <div key={log.id} className="flex justify-between items-center opacity-60 hover:opacity-100 transition-opacity">
                   <div className="flex items-center gap-2">
-                    <span className="text-primary font-bold">{log.action}</span>
-                    <span className="text-white/30 text-[8px]">{log.meta}</span>
+                    <span className="text-primary font-bold">HINT_REQ</span>
+                    <span className="text-white/30 text-[8px]">LVL_{log.levelId.slice(0, 4)}</span>
                   </div>
-                  <span className="text-white/20">{log.time}</span>
+                  <span className="text-white/20">{new Date(log.requestedAt).toLocaleTimeString()}</span>
                 </div>
               ))}
             </div>
@@ -216,8 +255,4 @@ export default function AdminDashboard() {
       </footer>
     </div>
   );
-}
-
-function Label({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <label className={`block mb-1 ${className}`}>{children}</label>;
 }

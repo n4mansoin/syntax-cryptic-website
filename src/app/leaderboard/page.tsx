@@ -4,31 +4,30 @@ import { useState, useEffect } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { useAuth } from '@/lib/auth-store';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Trophy, ArrowUp, Timer, Search, Globe } from 'lucide-react';
+import { Trophy, ArrowUp, Search, Globe } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, orderBy, limit } from 'firebase/firestore';
 
 export default function LeaderboardPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [lastUpdated, setLastUpdated] = useState(new Date());
+  const db = useFirestore();
 
-  // Mock leaderboard data
-  const teams = [
-    { rank: 1, name: "Null Pointers", level: 14, lastSolved: "2m ago", time: "14:22:05" },
-    { rank: 2, name: "Binary Bandits", level: 14, lastSolved: "5m ago", time: "14:28:44" },
-    { rank: 3, name: "Syntax Errors", level: 12, lastSolved: "1m ago", time: "15:10:11" },
-    { rank: 4, name: "V0id_Runners", level: 11, lastSolved: "12m ago", time: "15:44:22" },
-    { rank: 5, name: "Cyber Phantoms", level: 9, lastSolved: "30m ago", time: "16:05:00" },
-    { rank: 6, name: "The Alchemists", level: 8, lastSolved: "45m ago", time: "16:12:11" },
-    { rank: 7, name: "Root Access", level: 7, lastSolved: "1h ago", time: "17:00:00" },
-  ];
+  // Fetch real teams for leaderboard
+  const leaderboardQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return query(collection(db, 'teams'), orderBy('currentLevel', 'desc'), limit(50));
+  }, [db]);
+  const { data: teamsData, isLoading } = useCollection(leaderboardQuery);
 
   useEffect(() => {
     const interval = setInterval(() => setLastUpdated(new Date()), 10000);
     return () => clearInterval(interval);
   }, []);
 
-  const filteredTeams = teams.filter(t => t.name.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredTeams = teamsData?.filter(t => t.teamName.toLowerCase().includes(searchTerm.toLowerCase())) || [];
 
   return (
     <div className="min-h-screen bg-background flex flex-col p-6 pt-24 items-center">
@@ -65,36 +64,45 @@ export default function LeaderboardPage() {
                 <TableHead className="w-20 text-center text-[10px] uppercase tracking-widest font-bold text-primary">Rank</TableHead>
                 <TableHead className="text-[10px] uppercase tracking-widest font-bold text-white">Team Identity</TableHead>
                 <TableHead className="text-center text-[10px] uppercase tracking-widest font-bold text-white">Level</TableHead>
-                <TableHead className="text-right text-[10px] uppercase tracking-widest font-bold text-white">Solved Time</TableHead>
+                <TableHead className="text-right text-[10px] uppercase tracking-widest font-bold text-white">Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredTeams.map((team) => (
-                <TableRow key={team.rank} className="border-white/5 hover:bg-white/[0.03] transition-colors group">
+              {filteredTeams.map((team, index) => (
+                <TableRow key={team.id} className="border-white/5 hover:bg-white/[0.03] transition-colors group">
                   <TableCell className="text-center font-headline font-bold text-lg py-6">
-                    {team.rank === 1 ? <span className="text-primary text-2xl">01</span> : team.rank < 10 ? `0${team.rank}` : team.rank}
+                    {index === 0 ? <span className="text-primary text-2xl">01</span> : String(index + 1).padStart(2, '0')}
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-col">
-                      <span className="font-bold text-white text-lg tracking-tight group-hover:text-primary transition-colors">{team.name}</span>
+                      <span className="font-bold text-white text-lg tracking-tight group-hover:text-primary transition-colors">{team.teamName}</span>
                       <span className="text-[10px] text-white/20 font-mono flex items-center gap-1">
-                        <ArrowUp className="w-2 h-2 text-green-500" /> Solved {team.lastSolved}
+                        <ArrowUp className="w-2 h-2 text-green-500" /> Active Session
                       </span>
                     </div>
                   </TableCell>
                   <TableCell className="text-center">
                     <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 px-3 py-1 font-mono text-sm">
-                      LVL {team.level}
+                      LVL {team.currentLevel}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex flex-col items-end">
-                      <span className="font-mono text-sm text-white/70">{team.time}</span>
-                      <span className="text-[9px] uppercase tracking-widest text-white/20">System Clock</span>
+                      <span className="font-mono text-sm text-white/70">
+                        {team.penaltyUntil && new Date(team.penaltyUntil) > new Date() ? "PENALIZED" : "STABLE"}
+                      </span>
+                      <span className="text-[9px] uppercase tracking-widest text-white/20">Encryption Sync</span>
                     </div>
                   </TableCell>
                 </TableRow>
               ))}
+              {filteredTeams.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center py-12 text-white/20 font-mono uppercase tracking-widest">
+                    No active transmissions found
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </div>

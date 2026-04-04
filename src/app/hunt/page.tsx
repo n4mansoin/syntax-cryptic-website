@@ -6,43 +6,56 @@ import { useAuth } from '@/lib/auth-store';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Terminal, Send, Timer, HelpCircle, ChevronRight, AlertTriangle, Lightbulb } from 'lucide-react';
+import { Terminal, Send, Timer, HelpCircle, AlertTriangle, Lightbulb, CheckCircle2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, orderBy, serverTimestamp, doc } from 'firebase/firestore';
+import { addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 export default function HuntPage() {
-  const { auth, loading } = useAuth();
+  const { auth, loading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
+  const db = useFirestore();
   
-  const [currentLevel, setCurrentLevel] = useState(1);
   const [answer, setAnswer] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [hints, setHints] = useState<string[]>([]);
-  const [showHint, setShowHint] = useState(false);
   const [levelTimer, setLevelTimer] = useState(0);
 
-  // Mock levels data - 5 levels
-  const levels = [
-    { id: 1, question: "The beginning of everything, the zero in the binary. What is the first color seen by the void?", hint: "It reflects all, yet holds none." },
-    { id: 2, question: "I speak without a mouth and hear without ears. I have no body, but I come alive with wind. What am I?", hint: "A sound of your own voice." },
-    { id: 3, question: "A sequence of bytes, a shadow in the code. Find the prime that comes after the age of the universe in millions.", hint: "Think big, think primes (approx 13,700)." },
-    { id: 4, question: "The more of them you take, the more you leave behind. What are they?", hint: "They mark your path through the sand." },
-    { id: 5, question: "A king with no crown, a traveler with no feet. I move the sand but cannot be seen. What am I?", hint: "It whispers through the binary trees." }
-  ];
+  // Fetch levels from Firestore
+  const levelsQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return query(collection(db, 'levels'), orderBy('order', 'asc'));
+  }, [db]);
+  const { data: levels, isLoading: levelsLoading } = useCollection(levelsQuery);
+
+  // Fetch team progress
+  const teamDocQuery = useMemoFirebase(() => {
+    if (!db || !auth.teamId) return null;
+    return doc(db, 'teams', auth.teamId);
+  }, [db, auth.teamId]);
+  
+  // Fetch hint requests for this team to see if already requested
+  const hintRequestsQuery = useMemoFirebase(() => {
+    if (!db || !auth.teamId) return null;
+    return collection(db, 'teams', auth.teamId, 'hintRequests');
+  }, [db, auth.teamId]);
+  const { data: hintRequests } = useCollection(hintRequestsQuery);
+
+  const currentLevelIndex = (auth.currentLevel || 1) - 1;
+  const currentLevel = levels?.[currentLevelIndex];
 
   useEffect(() => {
-    if (!loading && !auth.teamId) {
+    if (!authLoading && !auth.teamId) {
       router.push('/login');
     }
-  }, [auth.teamId, loading, router]);
+  }, [auth.teamId, authLoading, router]);
 
   useEffect(() => {
     const timer = setInterval(() => setLevelTimer(prev => prev + 1), 1000);
     return () => clearInterval(timer);
-  }, [currentLevel]);
+  }, [auth.currentLevel]);
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -50,22 +63,43 @@ export default function HuntPage() {
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
+  const hasRequestedHint = hintRequests?.some(req => req.levelId === currentLevel?.id);
+
+  const handleRequestHint = () => {
+    if (!db || !auth.teamId || !currentLevel || hasRequestedHint) return;
+
+    addDocumentNonBlocking(collection(db, 'teams', auth.teamId, 'hintRequests'), {
+      teamId: auth.teamId,
+      levelId: currentLevel.id,
+      requestedAt: new Date().toISOString(),
+    });
+
+    toast({ title: "Signal Sent", description: "Hint request logged in system records." });
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!answer.trim()) return;
+    if (!answer.trim() || !db || !auth.teamId || !currentLevel) return;
     setSubmitting(true);
 
-    // Simulated verification logic
+    // In a real app, this would be a server-side check. 
+    // For MVP, we simulate with a list of answers or a field in the level doc.
     setTimeout(() => {
-      const correctAnswers = ["WHITE", "ECHO", "13739", "FOOTSTEPS", "WIND"];
-      if (answer.trim().toUpperCase() === correctAnswers[currentLevel - 1]) {
-        toast({ title: "Decryption Successful", description: `Moving to Level ${currentLevel + 1}` });
-        if (currentLevel < levels.length) {
-          setCurrentLevel(prev => prev + 1);
-          setAnswer('');
-          setLevelTimer(0);
-          setShowHint(false);
-        } else {
+      // Mock validation - in production the 'answer' field wouldn't be public in 'levels'
+      // but for this prototype we assume standard verification
+      const isCorrect = answer.trim().toUpperCase() === "DECRYPT"; // Placeholder logic
+      
+      if (isCorrect) {
+        const nextLevel = (auth.currentLevel || 1) + 1;
+        updateDocumentNonBlocking(doc(db, 'teams', auth.teamId), {
+          currentLevel: nextLevel
+        });
+        
+        toast({ title: "Decryption Successful", description: `Moving to Level ${nextLevel}` });
+        setAnswer('');
+        setLevelTimer(0);
+        
+        if (levels && nextLevel > levels.length) {
           router.push('/leaderboard');
         }
       } else {
@@ -79,10 +113,10 @@ export default function HuntPage() {
     }, 800);
   };
 
-  if (loading || !auth.teamId) return null;
+  if (authLoading || levelsLoading || !auth.teamId) return null;
 
-  // Progress formula as requested: Level 1 start = 0%, increments by 20%
-  const progressPercentage = Math.round(((currentLevel - 1) / levels.length) * 100);
+  const totalLevels = levels?.length || 5;
+  const progressPercentage = Math.round((( (auth.currentLevel || 1) - 1) / totalLevels) * 100);
 
   return (
     <div className="min-h-screen bg-background flex flex-col p-6 pt-24 items-center">
@@ -96,7 +130,7 @@ export default function HuntPage() {
               <Terminal className="w-6 h-6 text-primary" />
             </div>
             <div>
-              <h2 className="text-2xl font-headline font-bold text-white uppercase tracking-tighter">Level 0{currentLevel}</h2>
+              <h2 className="text-2xl font-headline font-bold text-white uppercase tracking-tighter">Level 0{auth.currentLevel || 1}</h2>
               <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-mono uppercase tracking-[0.2em]">
                 <Timer className="w-3 h-3" /> Time: {formatTime(levelTimer)}
               </div>
@@ -118,48 +152,52 @@ export default function HuntPage() {
               <HelpCircle className="w-24 h-24" />
             </div>
             <p className="text-2xl md:text-3xl font-body leading-relaxed text-center text-white/90 selection:bg-primary/30">
-              {levels[currentLevel - 1]?.question}
+              {currentLevel?.question || "No more levels available. You have completed the hunt."}
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="w-full max-w-lg space-y-6">
-            <div className="relative group">
-              <Input 
-                value={answer}
-                onChange={(e) => setAnswer(e.target.value)}
-                placeholder="INPUT DECRYPTION KEY"
-                className="h-16 text-xl text-center bg-card border-white/5 focus:border-primary focus:ring-primary/20 transition-all font-mono uppercase tracking-[0.3em] rounded-xl placeholder:text-white/10"
-              />
-            </div>
-            <Button disabled={submitting} type="submit" className="w-full h-14 text-lg font-bold bg-primary hover:bg-primary/90 transition-all shadow-[0_0_20px_rgba(124,92,255,0.2)] rounded-xl group">
-              {submitting ? "VERIFYING..." : "EXECUTE SUBMISSION"}
-              {!submitting && <Send className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />}
-            </Button>
-          </form>
+          {currentLevel && (
+            <form onSubmit={handleSubmit} className="w-full max-w-lg space-y-6">
+              <div className="relative group">
+                <Input 
+                  value={answer}
+                  onChange={(e) => setAnswer(e.target.value)}
+                  placeholder="INPUT DECRYPTION KEY"
+                  className="h-16 text-xl text-center bg-card border-white/5 focus:border-primary focus:ring-primary/20 transition-all font-mono uppercase tracking-[0.3em] rounded-xl placeholder:text-white/10"
+                />
+              </div>
+              <Button disabled={submitting} type="submit" className="w-full h-14 text-lg font-bold bg-primary hover:bg-primary/90 transition-all shadow-[0_0_20px_rgba(124,92,255,0.2)] rounded-xl group">
+                {submitting ? "VERIFYING..." : "EXECUTE SUBMISSION"}
+                {!submitting && <Send className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />}
+              </Button>
+            </form>
+          )}
 
           {/* Hint Area */}
-          <div className="w-full max-w-lg">
-            {!showHint ? (
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => setShowHint(true)}
-                className="w-full text-white/20 hover:text-primary hover:bg-primary/5 text-xs font-mono uppercase tracking-widest h-12 transition-all border border-transparent hover:border-primary/10"
-              >
-                <Lightbulb className="w-4 h-4 mr-2" /> Request Cryptic Hint
-              </Button>
-            ) : (
-              <div className="p-6 bg-primary/5 border border-primary/20 rounded-xl animate-scale-up">
-                <div className="flex items-center gap-2 mb-2">
-                  <Lightbulb className="w-4 h-4 text-primary" />
-                  <span className="text-[10px] text-primary uppercase font-bold tracking-[0.3em]">System Suggestion</span>
+          {currentLevel && (
+            <div className="w-full max-w-lg">
+              {!hasRequestedHint ? (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={handleRequestHint}
+                  className="w-full text-white/20 hover:text-primary hover:bg-primary/5 text-xs font-mono uppercase tracking-widest h-12 transition-all border border-transparent hover:border-primary/10"
+                >
+                  <Lightbulb className="w-4 h-4 mr-2" /> Request Cryptic Hint
+                </Button>
+              ) : (
+                <div className="p-6 bg-primary/5 border border-primary/20 rounded-xl animate-scale-up text-center space-y-2">
+                  <div className="flex items-center justify-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-primary" />
+                    <span className="text-[10px] text-primary uppercase font-bold tracking-[0.3em]">Status: Hint Requested</span>
+                  </div>
+                  <p className="text-[10px] text-primary/50 uppercase font-mono tracking-widest">
+                    Awaiting administrator authorization...
+                  </p>
                 </div>
-                <p className="text-sm italic text-primary/80 leading-relaxed font-body">
-                  "{levels[currentLevel - 1]?.hint}"
-                </p>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* System Logs (Footer decoration) */}
@@ -169,7 +207,7 @@ export default function HuntPage() {
               <div className="w-1 h-1 bg-green-500 rounded-full animate-pulse" /> Connection Stable
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-1 h-1 bg-primary rounded-full" /> Level Packet {currentLevel} Received
+              <div className="w-1 h-1 bg-primary rounded-full" /> Level Packet {auth.currentLevel || 1} Received
             </div>
             <div className="flex items-center gap-2">
               <AlertTriangle className="w-2 h-2 text-yellow-500" /> Latency: 42ms
