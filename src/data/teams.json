@@ -7,5 +7,14 @@
     "flagCount": 0,
     "penaltyUntil": null,
     "lastSolvedAt": null
+  },
+  {
+    "id": "team-test1",
+    "teamName": "test1",
+    "password": "testingstill",
+    "currentLevel": 1,
+    "flagCount": 0,
+    "penaltyUntil": null,
+    "lastSolvedAt": null
   }
 ]
