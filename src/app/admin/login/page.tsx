@@ -9,13 +9,14 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Navbar } from '@/components/Navbar';
-import { ShieldAlert, ShieldCheck, Fingerprint, Loader2 } from 'lucide-react';
+import { ShieldAlert, ShieldCheck, Fingerprint, Loader2, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/firebase';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 
 export default function AdminLoginPage() {
   const [step, setStep] = useState<1 | 2>(1);
+  const [teamName, setTeamName] = useState('admins');
   const [password, setPassword] = useState('');
   const [totp, setTotp] = useState('');
   const [loading, setLoading] = useState(false);
@@ -28,13 +29,19 @@ export default function AdminLoginPage() {
     e.preventDefault();
     setLoading(true);
     
-    // Admin credentials
-    const adminEmail = 'admin@intra-syntax.com';
+    const email = `${teamName.toLowerCase().trim()}@intra-syntax.com`;
     
     try {
-      // Authenticate with Firebase
-      // Note: Admin roles usually require custom claims which are set on the backend
-      await signInWithEmailAndPassword(firebaseAuth, adminEmail, password);
+      try {
+        await signInWithEmailAndPassword(firebaseAuth, email, password);
+      } catch (authError: any) {
+        // Auto-register admins for prototype
+        if (authError.code === 'auth/user-not-found' || authError.code === 'auth/invalid-credential') {
+          await createUserWithEmailAndPassword(firebaseAuth, email, password);
+        } else {
+          throw authError;
+        }
+      }
       
       loginAdmin('admin-root');
       setStep(2);
@@ -49,17 +56,15 @@ export default function AdminLoginPage() {
   const handle2FA = (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setTimeout(() => {
-      // Mock TOTP for demo purposes
-      if (totp === '123456') {
-        verify2FA();
-        toast({ title: "Authorized", description: "Identity verified. Redirecting to secure dashboard." });
-        router.push('/admin/dashboard');
-      } else {
-        toast({ variant: "destructive", title: "Invalid Code", description: "The provided TOTP code is incorrect or expired." });
-      }
-      setLoading(false);
-    }, 1000);
+    // Mock TOTP: 123456
+    if (totp === '123456') {
+      verify2FA();
+      toast({ title: "Authorized", description: "Identity verified. Redirecting to secure dashboard." });
+      router.push('/admin/dashboard');
+    } else {
+      toast({ variant: "destructive", title: "Invalid Code", description: "The provided TOTP code is incorrect." });
+    }
+    setLoading(false);
   };
 
   return (
@@ -67,7 +72,7 @@ export default function AdminLoginPage() {
       <Navbar />
       
       <div className="w-full max-w-md animate-scale-up">
-        <Card className="border-primary/20 bg-card/50 backdrop-blur-xl shadow-[0_0_40px_rgba(124,92,255,0.1)]">
+        <Card className="border-primary/20 bg-card/50 backdrop-blur-xl shadow-2xl">
           <CardHeader className="space-y-1 text-center pb-8">
             <div className="mx-auto w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
               {step === 1 ? <ShieldAlert className="w-6 h-6 text-primary" /> : <ShieldCheck className="w-6 h-6 text-primary" />}
@@ -80,16 +85,31 @@ export default function AdminLoginPage() {
           <CardContent>
             {step === 1 ? (
               <form onSubmit={handleInitialLogin} className="space-y-6">
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary/70">Master Key</Label>
-                  <Input 
-                    type="password" 
-                    placeholder="ENTER MASTER PASSWORD" 
-                    className="h-12 bg-background border-white/5 focus:border-primary/50 transition-all font-mono" 
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary/70">Admin Identity</Label>
+                    <div className="relative group">
+                      <User className="absolute left-3 top-3 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                      <Input 
+                        placeholder="ADMIN TEAM NAME" 
+                        className="pl-10 h-12 bg-background border-white/5 focus:border-primary/50 font-mono" 
+                        value={teamName}
+                        onChange={(e) => setTeamName(e.target.value)}
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary/70">Master Key</Label>
+                    <Input 
+                      type="password" 
+                      placeholder="ENTER MASTER PASSWORD" 
+                      className="h-12 bg-background border-white/5 focus:border-primary/50 transition-all font-mono" 
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                    />
+                  </div>
                 </div>
                 <Button type="submit" disabled={loading} className="w-full h-12 bg-primary hover:bg-primary/90 font-bold">
                   {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "PROCEED"}
@@ -98,7 +118,7 @@ export default function AdminLoginPage() {
             ) : (
               <form onSubmit={handle2FA} className="space-y-6">
                 <div className="space-y-2">
-                  <Label className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary/70">Authenticator Code</Label>
+                  <Label className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary/70">Authenticator Code (123456)</Label>
                   <div className="relative group">
                     <Fingerprint className="absolute left-3 top-3 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                     <Input 
@@ -110,7 +130,6 @@ export default function AdminLoginPage() {
                       required
                     />
                   </div>
-                  <p className="text-[10px] text-center text-white/30 font-mono mt-4">Code expires in 28 seconds</p>
                 </div>
                 <Button type="submit" disabled={loading} className="w-full h-12 bg-primary hover:bg-primary/90 font-bold">
                   {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "VERIFY IDENTITY"}

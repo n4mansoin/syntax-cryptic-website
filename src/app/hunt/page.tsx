@@ -3,7 +3,6 @@
 
 import { useState, useEffect } from 'react';
 import { Navbar } from '@/components/Navbar';
-import { useAuth as useAppStore } from '@/lib/auth-store';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,12 +10,11 @@ import { Progress } from '@/components/ui/progress';
 import { Terminal, Send, Timer, HelpCircle, Lightbulb, CheckCircle2, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useCollection, useMemoFirebase, useDoc, useUser } from '@/firebase';
-import { collection, query, orderBy, where, doc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, orderBy, where, doc } from 'firebase/firestore';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 export default function HuntPage() {
   const { user, isUserLoading } = useUser();
-  const { auth: appStore } = useAppStore();
   const router = useRouter();
   const { toast } = useToast();
   const db = useFirestore();
@@ -30,14 +28,21 @@ export default function HuntPage() {
     setIsMounted(true);
   }, []);
 
-  // Guard: Only fetch team document if user is authenticated via Firebase
+  // Guard: Only redirect if auth state is determined and user is null
+  useEffect(() => {
+    if (isMounted && !isUserLoading && !user) {
+      router.push('/login');
+    }
+  }, [user, isUserLoading, router, isMounted]);
+
+  // Team data
   const teamDocRef = useMemoFirebase(() => {
     if (!db || !user?.uid) return null;
     return doc(db, 'teams', user.uid);
   }, [db, user?.uid]);
   const { data: teamData, isLoading: teamLoading } = useDoc(teamDocRef);
 
-  // Guard: Fetch levels
+  // Levels
   const levelsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
     return query(collection(db, 'levels'), orderBy('order', 'asc'));
@@ -47,7 +52,7 @@ export default function HuntPage() {
   const currentLevelNumber = teamData?.currentLevel || 1;
   const currentLevel = levels?.find(l => l.order === currentLevelNumber);
 
-  // Guard: Fetch hint requests for this team
+  // Hint requests
   const hintRequestsQuery = useMemoFirebase(() => {
     if (!db || !user?.uid || !currentLevel?.id) return null;
     return query(
@@ -58,7 +63,7 @@ export default function HuntPage() {
   }, [db, user?.uid, currentLevel?.id]);
   const { data: hintRequests } = useCollection(hintRequestsQuery);
 
-  // Guard: Fetch released hints for current level
+  // Released hints
   const releasedHintsQuery = useMemoFirebase(() => {
     if (!db || !user || !currentLevel?.id) return null;
     return query(
@@ -70,17 +75,11 @@ export default function HuntPage() {
   const { data: releasedHints } = useCollection(releasedHintsQuery);
 
   useEffect(() => {
-    if (isMounted && !isUserLoading && !user) {
-      router.push('/login');
-    }
-  }, [user, isUserLoading, router, isMounted]);
-
-  useEffect(() => {
-    if (isMounted && currentLevelNumber) {
+    if (isMounted && user && !teamLoading) {
       const timer = setInterval(() => setLevelTimer(prev => prev + 1), 1000);
       return () => clearInterval(timer);
     }
-  }, [currentLevelNumber, isMounted]);
+  }, [user, teamLoading, isMounted]);
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -128,11 +127,9 @@ export default function HuntPage() {
     );
   }
 
-  if (!user) {
-    return null; // The useEffect will handle redirect
-  }
+  if (!user) return null;
 
-  // Calculate percentage: Level 1 = 0%, Level 2 = 20%, etc.
+  // Level 1: 0%, Level 2: 20%, Level 3: 40%, Level 4: 60%, Level 5: 80%, Complete: 100%
   const progressPercentage = Math.max(0, Math.min(100, (currentLevelNumber - 1) * 20));
 
   return (
@@ -180,14 +177,12 @@ export default function HuntPage() {
 
               {currentLevel && (
                 <form onSubmit={handleSubmit} className="w-full max-w-lg space-y-6">
-                  <div className="relative group">
-                    <Input 
-                      value={answer}
-                      onChange={(e) => setAnswer(e.target.value)}
-                      placeholder="INPUT DECRYPTION KEY"
-                      className="h-16 text-xl text-center bg-card border-white/5 focus:border-primary focus:ring-primary/20 transition-all font-mono uppercase tracking-[0.3em] rounded-xl"
-                    />
-                  </div>
+                  <Input 
+                    value={answer}
+                    onChange={(e) => setAnswer(e.target.value)}
+                    placeholder="INPUT DECRYPTION KEY"
+                    className="h-16 text-xl text-center bg-card border-white/5 focus:border-primary font-mono uppercase tracking-[0.3em] rounded-xl"
+                  />
                   <Button disabled={submitting} type="submit" className="w-full h-14 text-lg font-bold bg-primary hover:bg-primary/90 transition-all rounded-xl group">
                     {submitting ? "VERIFYING..." : "EXECUTE SUBMISSION"}
                     {!submitting && <Send className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />}
@@ -200,7 +195,6 @@ export default function HuntPage() {
                   {!hasRequestedHint ? (
                     <Button 
                       variant="ghost" 
-                      size="sm" 
                       onClick={handleRequestHint}
                       className="w-full text-white/20 hover:text-primary hover:bg-primary/5 text-xs font-mono uppercase tracking-widest h-12 transition-all border border-transparent hover:border-primary/10"
                     >

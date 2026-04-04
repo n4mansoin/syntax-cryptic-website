@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth as useAppStore } from '@/lib/auth-store';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -11,8 +11,9 @@ import { Label } from '@/components/ui/label';
 import { Navbar } from '@/components/Navbar';
 import { Terminal, Lock, User, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/firebase';
+import { useAuth, useFirestore, useUser } from '@/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 export default function LoginPage() {
   const [teamName, setTeamName] = useState('');
@@ -21,24 +22,31 @@ export default function LoginPage() {
   const router = useRouter();
   const { loginTeam } = useAppStore();
   const firebaseAuth = useAuth();
+  const { user } = useUser();
+  const db = useFirestore();
   const { toast } = useToast();
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      router.push('/hunt');
+    }
+  }, [user, router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     
-    // In a real cryptic hunt, teams usually have pre-assigned credentials
-    // We'll use a standardized email format for the Firebase Auth system
+    // Standardized email format for the Firebase Auth system
     const email = `${teamName.toLowerCase().trim()}@intra-syntax.com`;
 
     try {
-      // Attempt to sign in to Firebase
       let userCredential;
       try {
         userCredential = await signInWithEmailAndPassword(firebaseAuth, email, password);
       } catch (authError: any) {
-        // For the prototype, if the team doesn't exist, we'll auto-register them
-        if (authError.code === 'auth/user-not-found') {
+        // Auto-register for prototype purposes if user not found
+        if (authError.code === 'auth/user-not-found' || authError.code === 'auth/invalid-credential') {
           userCredential = await createUserWithEmailAndPassword(firebaseAuth, email, password);
         } else {
           throw authError;
@@ -46,17 +54,28 @@ export default function LoginPage() {
       }
 
       if (userCredential.user) {
-        // Sync local UI state
+        // Ensure Firestore document exists for this team
+        const teamDocRef = doc(db, 'teams', userCredential.user.uid);
+        const teamSnap = await getDoc(teamDocRef);
+        
+        if (!teamSnap.exists()) {
+          await setDoc(teamDocRef, {
+            teamName: teamName,
+            currentLevel: 1,
+            flagCount: 0,
+            penaltyUntil: null
+          });
+        }
+
         loginTeam(userCredential.user.uid, teamName);
         toast({ title: "Decryption Successful", description: `Team ${teamName} connection established.` });
         router.push('/hunt');
       }
     } catch (error: any) {
-      console.error("Auth Error:", error);
       toast({ 
         variant: "destructive", 
         title: "Authentication Failed", 
-        description: error.message || "Invalid team name or access key." 
+        description: "Invalid team name or access key." 
       });
     } finally {
       setLoading(false);
@@ -115,10 +134,6 @@ export default function LoginPage() {
             </form>
           </CardContent>
         </Card>
-        
-        <p className="text-center mt-8 text-white/20 text-[10px] uppercase tracking-[0.2em] font-mono">
-          Strict Security Protocols Enabled // End-to-End Encryption Active
-        </p>
       </div>
     </div>
   );
