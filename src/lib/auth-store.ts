@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -10,17 +9,15 @@ interface AuthState {
   teamId: string | null;
   teamName: string | null;
   adminId: string | null;
-  is2FAVerified: boolean;
 }
 
-const STORAGE_KEY = 'intra_syntax_auth_v3';
+const STORAGE_KEY = 'intra_syntax_auth_v4';
 
 const INITIAL_STATE: AuthState = {
   userType: null,
   teamId: null,
   teamName: null,
   adminId: null,
-  is2FAVerified: false,
 };
 
 export function useAuth() {
@@ -33,7 +30,6 @@ export function useAuth() {
       try {
         setAuth(JSON.parse(stored));
       } catch (e) {
-        console.error("Failed to parse auth store", e);
         localStorage.removeItem(STORAGE_KEY);
       }
     }
@@ -46,7 +42,6 @@ export function useAuth() {
       teamId: id,
       teamName: name,
       adminId: null,
-      is2FAVerified: false,
     };
     setAuth(newState);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(newState));
@@ -58,18 +53,9 @@ export function useAuth() {
       teamId: null,
       teamName: null,
       adminId: id,
-      is2FAVerified: false,
     };
     setAuth(newState);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(newState));
-  };
-
-  const verify2FA = () => {
-    setAuth(prev => {
-      const newState = { ...prev, is2FAVerified: true };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(newState));
-      return newState;
-    });
   };
 
   const logout = () => {
@@ -77,5 +63,5 @@ export function useAuth() {
     localStorage.removeItem(STORAGE_KEY);
   };
 
-  return { auth, loading, loginTeam, loginAdmin, verify2FA, logout };
+  return { auth, loading, loginTeam, loginAdmin, logout };
 }

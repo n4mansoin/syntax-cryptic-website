@@ -8,8 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { 
-  BarChart3, Lightbulb, Activity, 
-  Loader2, Plus, Terminal
+  BarChart3, Lightbulb, Loader2, Plus, Terminal
 } from 'lucide-react';
 import { useLocalStore } from '@/lib/local-store';
 import { Input } from '@/components/ui/input';
@@ -27,7 +26,7 @@ export default function AdminDashboard() {
   }, []);
 
   useEffect(() => {
-    if (isMounted && !authLoading && (!auth.adminId || !auth.is2FAVerified)) {
+    if (isMounted && !authLoading && !auth.adminId) {
       router.push('/admin/login');
     }
   }, [auth, authLoading, router, isMounted]);
