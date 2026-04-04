@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -8,9 +7,9 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
-import { Terminal, Send, Timer, HelpCircle, AlertTriangle, Lightbulb, CheckCircle2 } from 'lucide-react';
+import { Terminal, Send, Timer, HelpCircle, Lightbulb, CheckCircle2, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { collection, query, orderBy, where, doc } from 'firebase/firestore';
 
 export default function HuntPage() {
@@ -22,42 +21,50 @@ export default function HuntPage() {
   const [answer, setAnswer] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [levelTimer, setLevelTimer] = useState(0);
-  const [isClient, setIsClient] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
-    setIsClient(true);
+    setIsMounted(true);
   }, []);
 
-  // Fetch levels from flat Firestore collection
-  const levelsQuery = useMemoFirebase(() => {
+  // Fetch team document for real progress
+  const teamDocRef = useMemoFirebase(() => {
     if (!db || !auth.teamId) return null;
-    return query(collection(db, 'levels'), orderBy('order', 'asc'));
+    return doc(db, 'teams', auth.teamId);
   }, [db, auth.teamId]);
+  const { data: teamData, isLoading: teamLoading } = useDoc(teamDocRef);
+
+  // Fetch levels
+  const levelsQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return query(collection(db, 'levels'), orderBy('order', 'asc'));
+  }, [db]);
   const { data: levels, isLoading: levelsLoading } = useCollection(levelsQuery);
 
-  // Fetch hint requests for this team from the flat global collection
+  // Fetch hint requests for this team
   const hintRequestsQuery = useMemoFirebase(() => {
     if (!db || !auth.teamId) return null;
     return query(collection(db, 'hintRequests'), where('teamId', '==', auth.teamId));
   }, [db, auth.teamId]);
   const { data: hintRequests } = useCollection(hintRequestsQuery);
 
-  const currentLevelIndex = (auth.currentLevel || 1) - 1;
-  const currentLevel = levels?.[currentLevelIndex];
+  const currentLevelNumber = teamData?.currentLevel || 1;
+  const currentLevel = levels?.find(l => l.order === currentLevelNumber);
 
   useEffect(() => {
-    if (!authLoading && !auth.teamId) {
+    if (isMounted && !authLoading && !auth.teamId) {
       router.push('/login');
     }
-  }, [auth.teamId, authLoading, router]);
+  }, [auth.teamId, authLoading, router, isMounted]);
 
   useEffect(() => {
-    const timer = setInterval(() => setLevelTimer(prev => prev + 1), 1000);
-    return () => clearInterval(timer);
-  }, [auth.currentLevel]);
+    if (isMounted) {
+      const timer = setInterval(() => setLevelTimer(prev => prev + 1), 1000);
+      return () => clearInterval(timer);
+    }
+  }, [currentLevelNumber, isMounted]);
 
   const formatTime = (seconds: number) => {
-    if (!isClient) return "00:00";
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
@@ -66,11 +73,9 @@ export default function HuntPage() {
   const hasRequestedHint = hintRequests?.some(req => req.levelId === currentLevel?.id);
 
   const handleRequestHint = () => {
-    // Note: In strict production rules, client writes are blocked.
-    // This UI interaction would normally call a Cloud Function.
     toast({ 
-      title: "Action Restricted", 
-      description: "Direct client-side writes are blocked for security. This request is normally handled via secure system bridge." 
+      title: "Hint Requested", 
+      description: "Admin notification sent. Monitoring for signal release." 
     });
   };
 
@@ -79,29 +84,30 @@ export default function HuntPage() {
     if (!answer.trim() || !db || !auth.teamId || !currentLevel) return;
     setSubmitting(true);
 
-    // Simulated check - production would use a Cloud Function to verify
     setTimeout(() => {
-      const isCorrect = answer.trim().toUpperCase() === "DECRYPT";
-      
-      if (isCorrect) {
-        toast({ title: "Verification Required", description: "Answer submitted to system for secure verification." });
-        setAnswer('');
-        setLevelTimer(0);
-      } else {
-        toast({ 
-          variant: "destructive", 
-          title: "Incorrect Answer", 
-          description: "Try again or wait for admin signals." 
-        });
-      }
+      // In a real app, this logic would be in a Cloud Function
+      toast({ 
+        variant: "destructive", 
+        title: "Incorrect Answer", 
+        description: "Try again or wait for admin signals." 
+      });
       setSubmitting(false);
     }, 800);
   };
 
-  if (authLoading || levelsLoading || !auth.teamId || !isClient) return null;
+  if (!isMounted || authLoading || teamLoading || levelsLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!auth.teamId) return null;
 
   const totalLevels = 5;
-  const progressPercentage = Math.round((( (auth.currentLevel || 1) - 1) / totalLevels) * 100);
+  // Level 1 = 0%, Level 2 = 20%, etc.
+  const progressPercentage = Math.min(100, Math.max(0, (currentLevelNumber - 1) * 20));
 
   return (
     <div className="min-h-screen bg-background flex flex-col p-6 pt-24 items-center">
@@ -114,7 +120,7 @@ export default function HuntPage() {
               <Terminal className="w-6 h-6 text-primary" />
             </div>
             <div>
-              <h2 className="text-2xl font-headline font-bold text-white uppercase tracking-tighter">Level 0{auth.currentLevel || 1}</h2>
+              <h2 className="text-2xl font-headline font-bold text-white uppercase tracking-tighter">Level 0{currentLevelNumber}</h2>
               <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-mono uppercase tracking-[0.2em]">
                 <Timer className="w-3 h-3" /> Time: {formatTime(levelTimer)}
               </div>

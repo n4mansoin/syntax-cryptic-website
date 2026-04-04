@@ -20,7 +20,10 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100;300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
       </head>
-      <body className="font-body antialiased bg-background text-foreground selection:bg-primary selection:text-primary-foreground">
+      <body 
+        className="font-body antialiased bg-background text-foreground selection:bg-primary selection:text-primary-foreground"
+        suppressHydrationWarning
+      >
         <FirebaseClientProvider>
           {children}
         </FirebaseClientProvider>
