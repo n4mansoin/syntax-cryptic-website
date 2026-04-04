@@ -24,9 +24,14 @@ export default function AdminDashboard() {
   const router = useRouter();
   const { toast } = useToast();
   const db = useFirestore();
+  const [isMounted, setIsMounted] = useState(false);
   
   const [selectedLevel, setSelectedLevel] = useState('1');
   const [hintText, setHintText] = useState('');
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   // Fetch all teams for standings
   const teamsQuery = useMemoFirebase(() => {
@@ -35,10 +40,7 @@ export default function AdminDashboard() {
   }, [db]);
   const { data: teamsData } = useCollection(teamsQuery);
 
-  // Fetch all hint requests (using collectionGroup if supported, or individual team fetches)
-  // For standard rules we might need collectionGroup, but let's try mapping if we have small team count
-  // or a central collection if backend.json allowed.
-  // Using collectionGroup 'hintRequests'
+  // Fetch all hint requests
   const allHintRequestsQuery = useMemoFirebase(() => {
     if (!db) return null;
     return collectionGroup(db, 'hintRequests');
@@ -84,6 +86,11 @@ export default function AdminDashboard() {
 
   const getRequestCountForLevel = (levelId: string) => {
     return allHintRequests?.filter(req => req.levelId === levelId).length || 0;
+  };
+
+  const formatTimestamp = (isoString: string) => {
+    if (!isMounted) return '--:--:--';
+    return new Date(isoString).toLocaleTimeString();
   };
 
   if (loading || !auth.adminId || !auth.is2FAVerified) return null;
@@ -241,7 +248,7 @@ export default function AdminDashboard() {
                     <span className="text-primary font-bold">HINT_REQ</span>
                     <span className="text-white/30 text-[8px]">LVL_{log.levelId.slice(0, 4)}</span>
                   </div>
-                  <span className="text-white/20">{new Date(log.requestedAt).toLocaleTimeString()}</span>
+                  <span className="text-white/20">{formatTimestamp(log.requestedAt)}</span>
                 </div>
               ))}
             </div>

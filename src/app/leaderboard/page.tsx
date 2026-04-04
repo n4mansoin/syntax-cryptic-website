@@ -12,7 +12,7 @@ import { collection, query, orderBy, limit } from 'firebase/firestore';
 
 export default function LeaderboardPage() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [lastUpdated, setLastUpdated] = useState(new Date());
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const db = useFirestore();
 
   // Fetch real teams for leaderboard
@@ -23,6 +23,7 @@ export default function LeaderboardPage() {
   const { data: teamsData, isLoading } = useCollection(leaderboardQuery);
 
   useEffect(() => {
+    setLastUpdated(new Date());
     const interval = setInterval(() => setLastUpdated(new Date()), 10000);
     return () => clearInterval(interval);
   }, []);
@@ -109,7 +110,7 @@ export default function LeaderboardPage() {
 
         <div className="flex justify-center pt-4">
           <p className="text-[10px] text-white/10 uppercase tracking-[0.3em] font-mono">
-            Last Synced: {lastUpdated.toLocaleTimeString()} // Global Network Active
+            Last Synced: {lastUpdated ? lastUpdated.toLocaleTimeString() : '--:--:--'} // Global Network Active
           </p>
         </div>
       </div>

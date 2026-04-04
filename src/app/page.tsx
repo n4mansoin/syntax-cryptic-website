@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { Countdown } from '@/components/Countdown';
 import { Navbar } from '@/components/Navbar';
 import { Button } from '@/components/ui/button';
@@ -9,9 +10,14 @@ import { useAuth } from '@/lib/auth-store';
 
 export default function Home() {
   const { auth } = useAuth();
-  // Target: Tomorrow same time for demo purposes
-  const huntStartTime = new Date();
-  huntStartTime.setDate(huntStartTime.getDate() + 1);
+  const [huntStartTime, setHuntStartTime] = useState<Date | null>(null);
+
+  useEffect(() => {
+    // Target: Tomorrow same time for demo purposes
+    const target = new Date();
+    target.setDate(target.getDate() + 1);
+    setHuntStartTime(target);
+  }, []);
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 relative overflow-hidden">
@@ -34,7 +40,8 @@ export default function Home() {
 
         <div className="space-y-6">
           <p className="text-muted-foreground uppercase tracking-widest text-sm font-medium">Hunt starts in</p>
-          <Countdown targetDate={huntStartTime} />
+          {huntStartTime && <Countdown targetDate={huntStartTime} />}
+          {!huntStartTime && <div className="h-20" />}
         </div>
 
         <div className="flex flex-col items-center gap-4 w-full max-w-sm">
@@ -47,7 +54,7 @@ export default function Home() {
             </Link>
           ) : (
             <Link href="/login" className="w-full">
-              <Button size="lg" variant="outline" className="w-full h-14 text-lg font-bold rounded-xl border-white/10 hover:bg-white/5 transition-all">
+              <Button size="lg" variant="outline" className="h-14 w-full rounded-xl border-white/10 text-lg font-bold hover:bg-white/5 transition-all">
                 TEAM LOGIN
               </Button>
             </Link>
