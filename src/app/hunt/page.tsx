@@ -24,11 +24,13 @@ export default function HuntPage() {
   const [showHint, setShowHint] = useState(false);
   const [levelTimer, setLevelTimer] = useState(0);
 
-  // Mock levels data
+  // Mock levels data - Expanded to 5 levels
   const levels = [
     { id: 1, question: "The beginning of everything, the zero in the binary. What is the first color seen by the void?", hint: "It reflects all, yet holds none." },
     { id: 2, question: "I speak without a mouth and hear without ears. I have no body, but I come alive with wind. What am I?", hint: "A sound of your own voice." },
-    { id: 3, question: "A sequence of bytes, a shadow in the code. Find the prime that comes after the age of the universe in millions.", hint: "Think big, think primes." }
+    { id: 3, question: "A sequence of bytes, a shadow in the code. Find the prime that comes after the age of the universe in millions.", hint: "Think big, think primes (approx 13,700)." },
+    { id: 4, question: "The more of them you take, the more you leave behind. What are they?", hint: "They mark your path through the sand." },
+    { id: 5, question: "A king with no crown, a traveler with no feet. I move the sand but cannot be seen. What am I?", hint: "It whispers through the binary trees." }
   ];
 
   useEffect(() => {
@@ -55,7 +57,7 @@ export default function HuntPage() {
 
     // Simulated verification logic
     setTimeout(() => {
-      const correctAnswers = ["WHITE", "ECHO", "13739"]; // Mock correct answers
+      const correctAnswers = ["WHITE", "ECHO", "13739", "FOOTSTEPS", "WIND"];
       if (answer.trim().toUpperCase() === correctAnswers[currentLevel - 1]) {
         toast({ title: "Decryption Successful", description: `Moving to Level ${currentLevel + 1}` });
         if (currentLevel < levels.length) {
@@ -95,8 +97,8 @@ export default function HuntPage() {
           </div>
           <div className="flex flex-col items-end gap-2 min-w-[200px]">
             <div className="flex justify-between w-full text-[10px] uppercase font-mono tracking-widest text-primary">
-              <span>Progress</span>
-              <span>{Math.round((currentLevel / levels.length) * 100)}%</span>
+              <span>Level Progress</span>
+              <span>{currentLevel} / {levels.length}</span>
             </div>
             <Progress value={(currentLevel / levels.length) * 100} className="h-1.5 bg-white/5" />
           </div>
