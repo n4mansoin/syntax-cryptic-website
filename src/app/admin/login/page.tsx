@@ -29,13 +29,17 @@ export default function AdminLoginPage() {
     e.preventDefault();
     setLoading(true);
     
-    // Credentials: admin / admin
-    if (adminName === 'admin' && password === 'admin') {
+    // Updated Credentials: admin / qawsedrftg
+    if (adminName === 'admin' && password === 'qawsedrftg') {
       loginAdmin('admin-root');
       toast({ title: "Access Granted", description: "Welcome back, Administrator." });
       // Navigation is handled by the useEffect
     } else {
-      toast({ variant: "destructive", title: "Authentication Failed", description: "Invalid admin credentials (admin / admin)." });
+      toast({ 
+        variant: "destructive", 
+        title: "Authentication Failed", 
+        description: "Invalid credentials. Terminal access denied." 
+      });
     }
     setLoading(false);
   };
