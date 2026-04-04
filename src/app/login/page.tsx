@@ -45,7 +45,7 @@ export default function LoginPage() {
       try {
         userCredential = await signInWithEmailAndPassword(firebaseAuth, email, password);
       } catch (authError: any) {
-        // Auto-register for prototype purposes if user not found
+        // Auto-register for prototype purposes if user not found or for the specific test account
         if (authError.code === 'auth/user-not-found' || authError.code === 'auth/invalid-credential') {
           userCredential = await createUserWithEmailAndPassword(firebaseAuth, email, password);
         } else {
@@ -72,10 +72,11 @@ export default function LoginPage() {
         router.push('/hunt');
       }
     } catch (error: any) {
+      console.error(error);
       toast({ 
         variant: "destructive", 
         title: "Authentication Failed", 
-        description: "Invalid team name or access key." 
+        description: error.message || "Invalid team name or access key." 
       });
     } finally {
       setLoading(false);
