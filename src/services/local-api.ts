@@ -1,7 +1,8 @@
+
 'use client';
 
 import { sha256, normalizeAnswer } from '@/utils/hash';
-import { SECRET_KEY, ATTEMPT_LIMIT_PER_MINUTE, FLAGS_UNTIL_PENALTY } from '@/utils/constants';
+import { SECRET_KEY, ATTEMPT_LIMIT_PER_MINUTE, PENALTY_DURATION_MINUTES, FLAGS_UNTIL_PENALTY } from '@/utils/constants';
 import { StoreState, Team, Level, Attempt, Flag } from '@/lib/local-store';
 
 /**
@@ -45,6 +46,7 @@ export const localApi = {
    * Processes a decryption attempt with security enforcement.
    */
   async submitAnswer(teamId: string, levelId: string, userInput: string, { state, updateStore }: StoreContext) {
+    // 0. Fetch latest teams to avoid stale state in rapid successions
     const teams = [...state.teams];
     const teamIndex = teams.findIndex(t => t.id === teamId);
     if (teamIndex === -1) return { success: false, message: "Team not found." };
@@ -52,22 +54,29 @@ export const localApi = {
     const team = { ...teams[teamIndex] };
     const now = new Date();
 
-    // 1. Check Penalty Status
-    if (team.penaltyUntil && new Date(team.penaltyUntil) > now) {
-      return { 
-        success: false, 
-        message: `System lockout active. Decryption disabled.` 
-      };
+    // 1. Check Penalty Status (Strict enforcement)
+    if (team.penaltyUntil) {
+      const penaltyDate = new Date(team.penaltyUntil);
+      if (penaltyDate.getTime() > now.getTime()) {
+        return { 
+          success: false, 
+          message: `System lockout active. Decryption disabled. Wait for timer.` 
+        };
+      }
     }
 
-    // 2. Rate Limiting Enforcement
+    // 2. Rate Limiting Enforcement (Global per team)
     const attempts = [...state.attempts];
     const oneMinuteAgo = new Date(now.getTime() - 60000);
     const recentAttempts = attempts.filter(a => a.teamId === teamId && new Date(a.timestamp) > oneMinuteAgo);
 
     if (recentAttempts.length >= ATTEMPT_LIMIT_PER_MINUTE) {
-      this.flagTeam(teamId, "Rate limit breach (>5/min)", { state, updateStore });
-      return { success: false, message: "Decryption rate too high. Caution advised.", flagged: true };
+      this.flagTeam(teamId, "High-frequency decryption attempt (Rate Limit Breach)", { state, updateStore });
+      return { 
+        success: false, 
+        message: "Protocol Violation: Decryption rate too high. Account flagged.", 
+        flagged: true 
+      };
     }
 
     // 3. Security Check: Hashing and Comparison
@@ -94,14 +103,14 @@ export const localApi = {
       team.lastSolvedAt = now.toISOString();
       teams[teamIndex] = team;
       updateStore('teams', teams);
-      return { success: true, message: "Decryption successful. Proceeding." };
+      return { success: true, message: "Decryption successful. Proceeding to next node." };
     }
 
     return { success: false, message: "Decryption failed. Signal incorrect." };
   },
 
   /**
-   * Flags a team and handles automatic 45-minute lockout thresholds.
+   * Flags a team and handles automatic 60-minute lockout thresholds.
    */
   flagTeam(teamId: string, reason: string, { state, updateStore }: StoreContext) {
     const flags = [...state.flags];
@@ -120,9 +129,9 @@ export const localApi = {
       const team = { ...teams[teamIndex] };
       team.flagCount += 1;
       
-      // Threshold check: 3 flags = 45 minute penalty
+      // Threshold check: 3 flags = 60 minute penalty
       if (team.flagCount >= FLAGS_UNTIL_PENALTY) {
-        team.penaltyUntil = new Date(now.getTime() + 45 * 60000).toISOString();
+        team.penaltyUntil = new Date(now.getTime() + PENALTY_DURATION_MINUTES * 60000).toISOString();
         team.flagCount = 0; 
       }
       

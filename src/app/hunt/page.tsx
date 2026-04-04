@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -77,7 +78,15 @@ export default function HuntPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!answer.trim() || !auth.teamId || !currentLevel || penaltyTimeLeft) return;
+    
+    // Strict client-side check
+    if (!answer.trim() || !auth.teamId || !currentLevel || penaltyTimeLeft) {
+      if (penaltyTimeLeft) {
+        toast({ variant: "destructive", title: "Lockout Active", description: "Your terminal signal is suppressed." });
+      }
+      return;
+    }
+    
     setSubmitting(true);
 
     const result = await localApi.submitAnswer(auth.teamId, currentLevel.id, answer, { state, updateStore });
