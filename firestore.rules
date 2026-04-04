@@ -3,57 +3,51 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    /**
-     * CRYPTIC HUNT RULES - FLAT STRUCTURE & STRICT SECURITY
-     * 
-     * philosophy:
-     * - No unauthenticated access.
-     * - Flat collections for simplified querying and rules.
-     * - Admin roles via Custom Claims (request.auth.token.admin == true).
-     * - Client-side writes blocked (handled via backend/admin).
-     */
-
-    function isSignedIn() {
+    function isAuthenticated() {
       return request.auth != null;
     }
 
     function isAdmin() {
-      return isSignedIn() && request.auth.token.admin == true;
+      return request.auth != null && request.auth.token.admin == true;
     }
 
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    // --- COLLECTION RULES ---
-
-    // Teams: Owners read own, Admins read all. Writes blocked for client.
     match /teams/{teamId} {
-      allow read: if isOwner(teamId) || isAdmin();
-      allow write: if false; 
+      allow read: if isAuthenticated() && (request.auth.uid == teamId || isAdmin());
+      allow write: if false;
     }
 
-    // Levels: Readable by all authenticated users. Writes blocked.
     match /levels/{levelId} {
-      allow read: if isSignedIn();
+      allow read: if isAuthenticated();
       allow write: if false;
     }
 
-    // Hints: Readable by Admins, or Users if released. Writes blocked.
     match /hints/{hintId} {
-      allow read: if isAdmin() || (isSignedIn() && resource.data.isReleased == true);
-      allow write: if false;
+      allow read: if isAuthenticated() && (resource.data.isReleased == true || isAdmin());
+      allow write: if isAdmin();
     }
 
-    // HintRequests: Owners read own, Admins read all. Writes blocked for client.
     match /hintRequests/{requestId} {
-      allow read: if isAdmin() || (isSignedIn() && resource.data.teamId == request.auth.uid);
-      allow write: if false;
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.teamId == request.auth.uid);
+      allow write: if isAuthenticated();
     }
 
-    // Attempts, Flags, AdminLogs: Admin only.
-    match /attempts/{id} { allow read, write: if isAdmin(); }
-    match /flags/{id} { allow read, write: if isAdmin(); }
-    match /adminLogs/{id} { allow read, write: if isAdmin(); }
+    match /attempts/{attemptId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /flags/{flagId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /adminLogs/{logId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
   }
 }

@@ -2,167 +2,67 @@
 {
   "entities": {
     "Team": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Team",
       "type": "object",
-      "description": "Represents a participating team in the cryptic hunt.",
+      "description": "Represents a participating team.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier (matches Auth UID)."
-        },
-        "teamName": {
-          "type": "string",
-          "description": "The unique name of the team."
-        },
-        "currentLevel": {
-          "type": "number",
-          "description": "The current level the team has reached."
-        },
-        "flagCount": {
-          "type": "number",
-          "description": "Number of times flagged for suspicious activity."
-        },
-        "penaltyUntil": {
-          "type": "string",
-          "description": "ISO timestamp for penalty end.",
-          "format": "date-time"
-        }
+        "teamName": { "type": "string" },
+        "currentLevel": { "type": "number" },
+        "flagCount": { "type": "number" },
+        "penaltyUntil": { "type": "string", "format": "date-time" }
       },
-      "required": [
-        "id",
-        "teamName",
-        "currentLevel",
-        "flagCount"
-      ]
+      "required": ["teamName", "currentLevel", "flagCount"]
     },
     "Level": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Level",
       "type": "object",
-      "description": "Defines a single hunt level.",
       "properties": {
-        "id": {
-          "type": "string"
-        },
-        "question": {
-          "type": "string"
-        },
-        "order": {
-          "type": "number"
-        }
+        "question": { "type": "string" },
+        "order": { "type": "number" }
       },
-      "required": [
-        "id",
-        "question",
-        "order"
-      ]
+      "required": ["question", "order"]
     },
     "Hint": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Hint",
       "type": "object",
-      "description": "Hints for levels.",
       "properties": {
-        "id": {
-          "type": "string"
-        },
-        "levelId": {
-          "type": "string"
-        },
-        "hintText": {
-          "type": "string"
-        },
-        "isReleased": {
-          "type": "boolean"
-        },
-        "releasedAt": {
-          "type": "string",
-          "format": "date-time"
-        }
+        "levelId": { "type": "string" },
+        "hintText": { "type": "string" },
+        "isReleased": { "type": "boolean" },
+        "releasedAt": { "type": "string", "format": "date-time" }
       },
-      "required": [
-        "id",
-        "levelId",
-        "hintText",
-        "isReleased"
-      ]
+      "required": ["levelId", "hintText", "isReleased"]
     },
     "HintRequest": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "HintRequest",
       "type": "object",
-      "description": "Flat record of a team requesting a hint.",
       "properties": {
-        "id": {
-          "type": "string"
-        },
-        "teamId": {
-          "type": "string"
-        },
-        "levelId": {
-          "type": "string"
-        },
-        "requestedAt": {
-          "type": "string",
-          "format": "date-time"
-        }
+        "teamId": { "type": "string" },
+        "levelId": { "type": "string" },
+        "requestedAt": { "type": "string", "format": "date-time" }
       },
-      "required": [
-        "id",
-        "teamId",
-        "levelId",
-        "requestedAt"
-      ]
+      "required": ["teamId", "levelId", "requestedAt"]
     }
   },
   "auth": {
-    "providers": [
-      "password"
-    ]
+    "providers": ["password"]
   },
   "firestore": {
-    "structure": [
-      {
-        "path": "/teams/{teamId}",
-        "definition": {
-          "entityName": "Team",
-          "schema": {
-            "$ref": "#/backend/entities/Team"
-          },
-          "description": "Flat team collection. Only owner can read their own doc."
-        }
-      },
-      {
-        "path": "/levels/{levelId}",
-        "definition": {
-          "entityName": "Level",
-          "schema": {
-            "$ref": "#/backend/entities/Level"
-          },
-          "description": "Shared levels readable by authenticated users."
-        }
-      },
-      {
-        "path": "/hints/{hintId}",
-        "definition": {
-          "entityName": "Hint",
-          "schema": {
-            "$ref": "#/backend/entities/Hint"
-          },
-          "description": "Global hints collection. Read restricted to isReleased: true."
-        }
-      },
-      {
-        "path": "/hintRequests/{requestId}",
-        "definition": {
-          "entityName": "HintRequest",
-          "schema": {
-            "$ref": "#/backend/entities/HintRequest"
-          },
-          "description": "Flat hint requests. Teams read their own; admins read all."
-        }
-      }
-    ]
+    "/teams/{teamId}": {
+      "schema": { "$ref": "#/entities/Team" },
+      "description": "Team profiles."
+    },
+    "/levels/{levelId}": {
+      "schema": { "$ref": "#/entities/Level" },
+      "description": "Hunt levels."
+    },
+    "/hints/{hintId}": {
+      "schema": { "$ref": "#/entities/Hint" },
+      "description": "Cryptic hints for levels."
+    },
+    "/hintRequests/{requestId}": {
+      "schema": { "$ref": "#/entities/HintRequest" },
+      "description": "Flat collection of hint requests."
+    }
   }
 }

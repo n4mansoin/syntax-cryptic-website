@@ -3,20 +3,21 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/lib/auth-store';
+import { useAuth as useAppAuth } from '@/lib/auth-store';
 import { Navbar } from '@/components/Navbar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { 
   BarChart3, Flag, Lightbulb, Activity, 
-  Settings, Clock
+  Settings, Clock, Loader2
 } from 'lucide-react';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
 
 export default function AdminDashboard() {
-  const { auth, loading } = useAuth();
+  const { user, isUserLoading } = useUser();
+  const { auth, loading: authLoading } = useAppAuth();
   const router = useRouter();
   const db = useFirestore();
   const [isMounted, setIsMounted] = useState(false);
@@ -25,32 +26,32 @@ export default function AdminDashboard() {
     setIsMounted(true);
   }, []);
 
-  // Fetch all teams from flat collection
+  // Fetch all teams
   const teamsQuery = useMemoFirebase(() => {
-    if (!db) return null;
+    if (!db || !user) return null;
     return query(collection(db, 'teams'), orderBy('currentLevel', 'desc'));
-  }, [db]);
-  const { data: teamsData } = useCollection(teamsQuery);
+  }, [db, user]);
+  const { data: teamsData, isLoading: teamsLoading } = useCollection(teamsQuery);
 
-  // Fetch all hint requests from flat global collection
+  // Fetch all hint requests
   const allHintRequestsQuery = useMemoFirebase(() => {
-    if (!db) return null;
+    if (!db || !user) return null;
     return query(collection(db, 'hintRequests'), orderBy('requestedAt', 'desc'));
-  }, [db]);
+  }, [db, user]);
   const { data: allHintRequests } = useCollection(allHintRequestsQuery);
 
   // Fetch levels
   const levelsQuery = useMemoFirebase(() => {
-    if (!db) return null;
+    if (!db || !user) return null;
     return query(collection(db, 'levels'), orderBy('order', 'asc'));
-  }, [db]);
+  }, [db, user]);
   const { data: levels } = useCollection(levelsQuery);
 
   useEffect(() => {
-    if (!loading && (!auth.adminId || !auth.is2FAVerified)) {
+    if (isMounted && !isUserLoading && !user) {
       router.push('/admin/login');
     }
-  }, [auth, loading, router]);
+  }, [user, isUserLoading, router, isMounted]);
 
   const getRequestCountForLevel = (levelId: string) => {
     return allHintRequests?.filter(req => req.levelId === levelId).length || 0;
@@ -58,10 +59,22 @@ export default function AdminDashboard() {
 
   const formatTimestamp = (isoString: string) => {
     if (!isMounted) return '--:--:--';
-    return new Date(isoString).toLocaleTimeString();
+    try {
+      return new Date(isoString).toLocaleTimeString();
+    } catch {
+      return 'Invalid Date';
+    }
   };
 
-  if (loading || !auth.adminId || !auth.is2FAVerified) return null;
+  if (!isMounted || isUserLoading || authLoading || teamsLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!user) return null;
 
   return (
     <div className="min-h-screen bg-background flex flex-col p-6 pt-24 space-y-8 max-w-[1400px] mx-auto w-full">
@@ -73,7 +86,7 @@ export default function AdminDashboard() {
             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
             <h1 className="text-3xl font-headline font-bold text-white tracking-tighter uppercase">Operations Control</h1>
           </div>
-          <p className="text-muted-foreground text-xs font-mono uppercase tracking-widest opacity-50">Identity: {auth.adminId} // Custom Claim: Root_Admin</p>
+          <p className="text-muted-foreground text-xs font-mono uppercase tracking-widest opacity-50">Identity: {user.uid} // Custom Claim: Root_Admin</p>
         </div>
       </div>
 
@@ -96,6 +109,9 @@ export default function AdminDashboard() {
                 </div>
               </div>
             ))}
+            {(!teamsData || teamsData.length === 0) && (
+              <p className="text-center py-8 text-white/20 font-mono text-xs">NO ACTIVE TEAMS FOUND</p>
+            )}
           </CardContent>
         </Card>
 
@@ -128,6 +144,9 @@ export default function AdminDashboard() {
                 <span>{formatTimestamp(log.requestedAt)}</span>
               </div>
             ))}
+            {(!allHintRequests || allHintRequests.length === 0) && (
+              <p className="text-center py-8 text-white/20 font-mono text-xs">NO RECENT ACTIVITY</p>
+            )}
           </CardContent>
         </Card>
       </div>
