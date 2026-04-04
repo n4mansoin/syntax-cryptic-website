@@ -102,27 +102,7 @@ class LocalApiService {
     const recentAttempts = attempts.filter(a => a.teamId === teamId && new Date(a.timestamp) > oneMinuteAgo);
 
     if (recentAttempts.length >= ATTEMPT_LIMIT_PER_MINUTE) {
-      // Apply Flag
-      team.flagCount += 1;
-      const flags = this.getStore<Flag[]>(STORAGE_KEYS.FLAGS, []);
-      flags.push({
-        id: Math.random().toString(36).substr(2, 9),
-        teamId,
-        reason: "Rate limit breach",
-        timestamp: now.toISOString()
-      });
-      this.saveStore(STORAGE_KEYS.FLAGS, flags);
-
-      if (team.flagCount >= FLAGS_UNTIL_PENALTY) {
-        team.penaltyUntil = new Date(now.getTime() + PENALTY_DURATION_MINUTES * 60000).toISOString();
-        team.flagCount = 0;
-        teams[teamIndex] = team;
-        this.saveStore(STORAGE_KEYS.TEAMS, teams);
-        return { success: false, message: "Protocol violation detected. Account suspended temporarily." };
-      }
-
-      teams[teamIndex] = team;
-      this.saveStore(STORAGE_KEYS.TEAMS, teams);
+      this.flagTeam(teamId, "Rate limit breach");
       return { success: false, message: "Decryption rate too high. Caution advised." };
     }
 
@@ -184,6 +164,33 @@ class LocalApiService {
     this.saveStore(STORAGE_KEYS.HINTS, hints);
   }
 
+  flagTeam(teamId: string, reason: string = "Manual Admin Flag") {
+    const flags = this.getStore<Flag[]>(STORAGE_KEYS.FLAGS, []);
+    const now = new Date();
+    flags.push({
+      id: Math.random().toString(36).substr(2, 9),
+      teamId,
+      reason,
+      timestamp: now.toISOString()
+    });
+    this.saveStore(STORAGE_KEYS.FLAGS, flags);
+
+    const teams = this.getStore<Team[]>(STORAGE_KEYS.TEAMS, []);
+    const teamIndex = teams.findIndex(t => t.id === teamId);
+    if (teamIndex !== -1) {
+      const team = teams[teamIndex];
+      team.flagCount += 1;
+      
+      if (team.flagCount >= FLAGS_UNTIL_PENALTY) {
+        team.penaltyUntil = new Date(now.getTime() + PENALTY_DURATION_MINUTES * 60000).toISOString();
+        team.flagCount = 0;
+      }
+      
+      teams[teamIndex] = team;
+      this.saveStore(STORAGE_KEYS.TEAMS, teams);
+    }
+  }
+
   applyPenalty(teamId: string) {
     const teams = this.getStore<Team[]>(STORAGE_KEYS.TEAMS, []);
     const teamIndex = teams.findIndex(t => t.id === teamId);
@@ -194,23 +201,19 @@ class LocalApiService {
   }
 
   initializeData(initialLevels: Level[], initialTeams: Team[]) {
-    // 1. Levels Sync
     if (!localStorage.getItem(STORAGE_KEYS.LEVELS)) {
       this.saveStore(STORAGE_KEYS.LEVELS, initialLevels);
     }
     
-    // 2. Teams Sync
     const existingTeams = this.getStore<Team[]>(STORAGE_KEYS.TEAMS, []);
     let modified = false;
 
     initialTeams.forEach(initialTeam => {
       const index = existingTeams.findIndex(t => t.teamName === initialTeam.teamName);
       if (index === -1) {
-        // Add missing team
         existingTeams.push(initialTeam);
         modified = true;
       } else {
-        // Ensure password is up to date for test accounts
         if (existingTeams[index].password !== initialTeam.password) {
           existingTeams[index].password = initialTeam.password;
           modified = true;

@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { useLocalStore } from '@/lib/local-store';
 import { Input } from '@/components/ui/input';
-import { localApi, Hint, Attempt, Flag as TeamFlag } from '@/services/local-api';
+import { localApi, Flag as TeamFlag } from '@/services/local-api';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 export default function AdminDashboard() {
@@ -49,6 +49,11 @@ export default function AdminDashboard() {
     localApi.releaseHint(selectedLevelId, hintText);
     setHintText('');
     setSelectedLevelId('');
+    refresh();
+  };
+
+  const handleFlagTeam = (teamId: string) => {
+    localApi.flagTeam(teamId, "Manual Admin Flag");
     refresh();
   };
 
@@ -112,10 +117,10 @@ export default function AdminDashboard() {
                   <Button 
                     variant="ghost" 
                     size="icon" 
-                    onClick={() => handlePenalty(team.id)}
+                    onClick={() => handleFlagTeam(team.id)}
                     className="text-white/20 hover:text-destructive"
                   >
-                    <ShieldAlert className="w-4 h-4" />
+                    <Flag className="w-4 h-4" />
                   </Button>
                 </div>
               </div>
