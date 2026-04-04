@@ -28,21 +28,18 @@ export default function HuntPage() {
     setIsMounted(true);
   }, []);
 
-  // Guard: Only redirect if auth state is determined and user is null
   useEffect(() => {
     if (isMounted && !isUserLoading && !user) {
       router.push('/login');
     }
   }, [user, isUserLoading, router, isMounted]);
 
-  // Team data
   const teamDocRef = useMemoFirebase(() => {
     if (!db || !user?.uid) return null;
     return doc(db, 'teams', user.uid);
   }, [db, user?.uid]);
   const { data: teamData, isLoading: teamLoading } = useDoc(teamDocRef);
 
-  // Levels
   const levelsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
     return query(collection(db, 'levels'), orderBy('order', 'asc'));
@@ -52,7 +49,6 @@ export default function HuntPage() {
   const currentLevelNumber = teamData?.currentLevel || 1;
   const currentLevel = levels?.find(l => l.order === currentLevelNumber);
 
-  // Hint requests
   const hintRequestsQuery = useMemoFirebase(() => {
     if (!db || !user?.uid || !currentLevel?.id) return null;
     return query(
@@ -63,7 +59,6 @@ export default function HuntPage() {
   }, [db, user?.uid, currentLevel?.id]);
   const { data: hintRequests } = useCollection(hintRequestsQuery);
 
-  // Released hints
   const releasedHintsQuery = useMemoFirebase(() => {
     if (!db || !user || !currentLevel?.id) return null;
     return query(
@@ -116,7 +111,7 @@ export default function HuntPage() {
         await updateDoc(teamDocRef, {
           currentLevel: currentLevelNumber + 1
         });
-        toast({ title: "Decryption Successful", description: "Advancing to next level." });
+        toast({ title: "Decryption Successful", description: "Advancing to next layer." });
         setAnswer('');
       } catch (error: any) {
         toast({ variant: "destructive", title: "Transmission Error", description: "Failed to update progress." });
@@ -141,7 +136,6 @@ export default function HuntPage() {
 
   if (!user) return null;
 
-  // Level 1: 0%, Level 2: 20%, Level 3: 40%, Level 4: 60%, Level 5: 80%, Level 6+: 100%
   const progressPercentage = Math.max(0, Math.min(100, (currentLevelNumber - 1) * 20));
 
   return (
@@ -182,17 +176,17 @@ export default function HuntPage() {
             <div className="flex flex-col items-center gap-6 py-12">
               <CheckCircle2 className="w-20 h-20 text-primary" />
               <h3 className="text-4xl font-headline font-bold uppercase tracking-tighter">Signal Decrypted</h3>
-              <p className="text-muted-foreground font-mono text-sm">Mission Complete. You have breached the final layer.</p>
+              <p className="text-muted-foreground font-mono text-sm text-center">Mission Complete. You have breached the final security layer.</p>
             </div>
           ) : !currentLevel ? (
             <div className="flex flex-col items-center gap-6 py-12 text-center max-w-md">
               <AlertCircle className="w-16 h-16 text-yellow-500/50" />
               <div className="space-y-2">
                 <h3 className="text-xl font-bold uppercase">No Signals Found</h3>
-                <p className="text-sm text-muted-foreground">The cryptic transmission hasn't been initialized yet. If you are an admin, please visit the setup portal.</p>
+                <p className="text-sm text-muted-foreground">The cryptic transmission hasn't been initialized yet. If you are the system administrator, please visit the setup portal to seed the levels.</p>
               </div>
-              {user.email === 'admins@intra-syntax.com' && (
-                <Button onClick={() => router.push('/admin/setup')} variant="outline" className="border-primary/20 text-primary hover:bg-primary/10">
+              {(user.email === 'admin@intra-syntax.com' || user.email === 'admins@intra-syntax.com') && (
+                <Button onClick={() => router.push('/admin/setup')} variant="outline" className="border-primary/20 text-primary hover:bg-primary/10 h-12 px-8 font-bold">
                   INITIALIZE DATABASE
                 </Button>
               )}

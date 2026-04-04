@@ -22,22 +22,20 @@ export default function LoginPage() {
   const router = useRouter();
   const { loginTeam } = useAppStore();
   const firebaseAuth = useAuth();
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
   const db = useFirestore();
   const { toast } = useToast();
 
-  // Redirect if already logged in
   useEffect(() => {
-    if (user) {
+    if (!isUserLoading && user) {
       router.push('/hunt');
     }
-  }, [user, router]);
+  }, [user, isUserLoading, router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     
-    // Standardized email format for the Firebase Auth system
     const email = `${teamName.toLowerCase().trim()}@intra-syntax.com`;
 
     try {
@@ -45,8 +43,7 @@ export default function LoginPage() {
       try {
         userCredential = await signInWithEmailAndPassword(firebaseAuth, email, password);
       } catch (authError: any) {
-        // Auto-register for prototype purposes if user not found or for the specific test account
-        if (authError.code === 'auth/user-not-found' || authError.code === 'auth/invalid-credential') {
+        if (authError.code === 'auth/user-not-found' || authError.code === 'auth/invalid-credential' || authError.code === 'auth/invalid-email') {
           userCredential = await createUserWithEmailAndPassword(firebaseAuth, email, password);
         } else {
           throw authError;
@@ -54,7 +51,6 @@ export default function LoginPage() {
       }
 
       if (userCredential.user) {
-        // Ensure Firestore document exists for this team
         const teamDocRef = doc(db, 'teams', userCredential.user.uid);
         const teamSnap = await getDoc(teamDocRef);
         
@@ -68,7 +64,7 @@ export default function LoginPage() {
         }
 
         loginTeam(userCredential.user.uid, teamName);
-        toast({ title: "Decryption Successful", description: `Team ${teamName} connection established.` });
+        toast({ title: "Decryption Successful", description: `Connection established.` });
         router.push('/hunt');
       }
     } catch (error: any) {
@@ -76,7 +72,7 @@ export default function LoginPage() {
       toast({ 
         variant: "destructive", 
         title: "Authentication Failed", 
-        description: error.message || "Invalid team name or access key." 
+        description: "Verify your credentials and try again." 
       });
     } finally {
       setLoading(false);
@@ -93,8 +89,8 @@ export default function LoginPage() {
             <div className="mx-auto w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
               <Terminal className="w-6 h-6 text-primary" />
             </div>
-            <CardTitle className="text-3xl font-headline font-bold tracking-tight">Team Authentication</CardTitle>
-            <CardDescription className="text-muted-foreground">Enter your secure credentials to join the hunt</CardDescription>
+            <CardTitle className="text-3xl font-headline font-bold tracking-tight">Team Portal</CardTitle>
+            <CardDescription className="text-muted-foreground">Access the cryptic network</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleLogin} className="space-y-6">
@@ -105,8 +101,8 @@ export default function LoginPage() {
                     <User className="absolute left-3 top-3 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                     <Input 
                       id="teamName" 
-                      placeholder="ENTER TEAM NAME" 
-                      className="pl-10 h-12 bg-background border-white/5 focus:border-primary/50 focus:ring-primary/20 transition-all font-mono text-sm tracking-wider" 
+                      placeholder="e.g. test123" 
+                      className="pl-10 h-12 bg-background border-white/5 focus:border-primary/50 font-mono" 
                       value={teamName}
                       onChange={(e) => setTeamName(e.target.value)}
                       required
@@ -121,7 +117,7 @@ export default function LoginPage() {
                       id="password" 
                       type="password" 
                       placeholder="••••••••" 
-                      className="pl-10 h-12 bg-background border-white/5 focus:border-primary/50 focus:ring-primary/20 transition-all" 
+                      className="pl-10 h-12 bg-background border-white/5 focus:border-primary/50" 
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
@@ -129,7 +125,7 @@ export default function LoginPage() {
                   </div>
                 </div>
               </div>
-              <Button type="submit" disabled={loading} className="w-full h-12 text-sm font-bold bg-primary hover:bg-primary/90 transition-all shadow-[0_0_15px_rgba(124,92,255,0.2)]">
+              <Button type="submit" disabled={loading} className="w-full h-12 text-sm font-bold bg-primary hover:bg-primary/90 transition-all">
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "DECRYPT ACCESS"}
               </Button>
             </form>

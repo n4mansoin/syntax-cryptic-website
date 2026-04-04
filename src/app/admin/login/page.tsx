@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth as useAppStore } from '@/lib/auth-store';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -11,31 +11,38 @@ import { Label } from '@/components/ui/label';
 import { Navbar } from '@/components/Navbar';
 import { ShieldAlert, ShieldCheck, Fingerprint, Loader2, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/firebase';
+import { useAuth, useUser } from '@/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 
 export default function AdminLoginPage() {
   const [step, setStep] = useState<1 | 2>(1);
-  const [teamName, setTeamName] = useState('admins');
+  const [adminName, setAdminName] = useState('admin');
   const [password, setPassword] = useState('');
   const [totp, setTotp] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const { loginAdmin, verify2FA } = useAppStore();
   const firebaseAuth = useAuth();
+  const { user, isUserLoading } = useUser();
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (!isUserLoading && user && user.email === 'admin@intra-syntax.com') {
+      // If already logged in to Firebase as admin, allow 2FA step directly
+      setStep(2);
+    }
+  }, [user, isUserLoading]);
 
   const handleInitialLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     
-    const email = `${teamName.toLowerCase().trim()}@intra-syntax.com`;
+    const email = `${adminName.toLowerCase().trim()}@intra-syntax.com`;
     
     try {
       try {
         await signInWithEmailAndPassword(firebaseAuth, email, password);
       } catch (authError: any) {
-        // Auto-register admins for prototype
         if (authError.code === 'auth/user-not-found' || authError.code === 'auth/invalid-credential') {
           await createUserWithEmailAndPassword(firebaseAuth, email, password);
         } else {
@@ -45,9 +52,9 @@ export default function AdminLoginPage() {
       
       loginAdmin('admin-root');
       setStep(2);
-      toast({ title: "Administrative Access", description: "Phase 1 verification complete. Awaiting TOTP." });
+      toast({ title: "Administrative Access", description: "Phase 1 complete. Awaiting TOTP." });
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Access Denied", description: "Incorrect administrative credentials." });
+      toast({ variant: "destructive", title: "Access Denied", description: "Invalid admin credentials." });
     } finally {
       setLoading(false);
     }
@@ -59,10 +66,10 @@ export default function AdminLoginPage() {
     // Mock TOTP: 123456
     if (totp === '123456') {
       verify2FA();
-      toast({ title: "Authorized", description: "Identity verified. Redirecting to secure dashboard." });
+      toast({ title: "Authorized", description: "Identity verified." });
       router.push('/admin/dashboard');
     } else {
-      toast({ variant: "destructive", title: "Invalid Code", description: "The provided TOTP code is incorrect." });
+      toast({ variant: "destructive", title: "Invalid Code", description: "Incorrect TOTP." });
     }
     setLoading(false);
   };
@@ -78,23 +85,21 @@ export default function AdminLoginPage() {
               {step === 1 ? <ShieldAlert className="w-6 h-6 text-primary" /> : <ShieldCheck className="w-6 h-6 text-primary" />}
             </div>
             <CardTitle className="text-3xl font-headline font-bold tracking-tight">Admin Portal</CardTitle>
-            <CardDescription className="text-muted-foreground">
-              {step === 1 ? "Administrative Identity Required" : "Multi-Factor Authentication Required"}
-            </CardDescription>
+            <CardDescription className="text-muted-foreground">Secure Administrative Login</CardDescription>
           </CardHeader>
           <CardContent>
             {step === 1 ? (
               <form onSubmit={handleInitialLogin} className="space-y-6">
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary/70">Admin Identity</Label>
+                    <Label className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary/70">Identity</Label>
                     <div className="relative group">
                       <User className="absolute left-3 top-3 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                       <Input 
-                        placeholder="ADMIN TEAM NAME" 
+                        placeholder="ADMIN NAME" 
                         className="pl-10 h-12 bg-background border-white/5 focus:border-primary/50 font-mono" 
-                        value={teamName}
-                        onChange={(e) => setTeamName(e.target.value)}
+                        value={adminName}
+                        onChange={(e) => setAdminName(e.target.value)}
                         required
                       />
                     </div>
@@ -103,7 +108,7 @@ export default function AdminLoginPage() {
                     <Label className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary/70">Master Key</Label>
                     <Input 
                       type="password" 
-                      placeholder="ENTER MASTER PASSWORD" 
+                      placeholder="••••••••" 
                       className="h-12 bg-background border-white/5 focus:border-primary/50 transition-all font-mono" 
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
@@ -122,7 +127,7 @@ export default function AdminLoginPage() {
                   <div className="relative group">
                     <Fingerprint className="absolute left-3 top-3 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                     <Input 
-                      placeholder="0 0 0  0 0 0" 
+                      placeholder="000000" 
                       className="pl-10 h-12 text-center text-xl tracking-[0.5em] bg-background border-white/5 focus:border-primary/50 font-mono" 
                       maxLength={6}
                       value={totp}

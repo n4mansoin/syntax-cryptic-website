@@ -8,14 +8,17 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      // For this prototype, we'll identify the admin by their specific email address
-      return isAuthenticated() && request.auth.token.email == "admins@intra-syntax.com";
+      // Identity-based admin check for prototype
+      return isAuthenticated() && (
+        request.auth.token.email == "admin@intra-syntax.com" || 
+        request.auth.token.email == "admins@intra-syntax.com"
+      );
     }
 
     match /teams/{teamId} {
       allow read: if isAuthenticated() && (request.auth.uid == teamId || isAdmin());
-      // Allow teams to create/update their own profiles for this prototype
-      allow write: if (isAuthenticated() && request.auth.uid == teamId) || isAdmin();
+      // Allow teams to create their own record during first login
+      allow write: if isAuthenticated() && (request.auth.uid == teamId || isAdmin());
     }
 
     match /levels/{levelId} {
@@ -30,7 +33,8 @@ service cloud.firestore {
 
     match /hintRequests/{requestId} {
       allow read: if isAdmin() || (isAuthenticated() && resource.data.teamId == request.auth.uid);
-      allow write: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.teamId == request.auth.uid;
+      allow update, delete: if isAdmin();
     }
 
     match /attempts/{attemptId} {
