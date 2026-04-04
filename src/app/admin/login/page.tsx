@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth as useAppStore } from '@/lib/auth-store';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -11,59 +10,37 @@ import { Label } from '@/components/ui/label';
 import { Navbar } from '@/components/Navbar';
 import { ShieldAlert, ShieldCheck, Fingerprint, Loader2, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth, useUser } from '@/firebase';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 
 export default function AdminLoginPage() {
   const [step, setStep] = useState<1 | 2>(1);
-  const [adminName, setAdminName] = useState('admin');
+  const [adminName, setAdminName] = useState('admins');
   const [password, setPassword] = useState('');
   const [totp, setTotp] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const { loginAdmin, verify2FA } = useAppStore();
-  const firebaseAuth = useAuth();
-  const { user, isUserLoading } = useUser();
   const { toast } = useToast();
-
-  useEffect(() => {
-    if (!isUserLoading && user && user.email === 'admin@intra-syntax.com') {
-      // If already logged in to Firebase as admin, allow 2FA step directly
-      setStep(2);
-    }
-  }, [user, isUserLoading]);
 
   const handleInitialLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     
-    const email = `${adminName.toLowerCase().trim()}@intra-syntax.com`;
+    // Hardcoded credentials: admins / qwertyhbvcdfgh
+    const isValid = adminName.toLowerCase() === 'admins' && password === 'qwertyhbvcdfgh';
     
-    try {
-      try {
-        await signInWithEmailAndPassword(firebaseAuth, email, password);
-      } catch (authError: any) {
-        if (authError.code === 'auth/user-not-found' || authError.code === 'auth/invalid-credential') {
-          await createUserWithEmailAndPassword(firebaseAuth, email, password);
-        } else {
-          throw authError;
-        }
-      }
-      
+    if (isValid) {
       loginAdmin('admin-root');
       setStep(2);
       toast({ title: "Administrative Access", description: "Phase 1 complete. Awaiting TOTP." });
-    } catch (error: any) {
+    } else {
       toast({ variant: "destructive", title: "Access Denied", description: "Invalid admin credentials." });
-    } finally {
-      setLoading(false);
     }
+    setLoading(false);
   };
 
   const handle2FA = (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    // Mock TOTP: 123456
     if (totp === '123456') {
       verify2FA();
       toast({ title: "Authorized", description: "Identity verified." });
@@ -85,7 +62,7 @@ export default function AdminLoginPage() {
               {step === 1 ? <ShieldAlert className="w-6 h-6 text-primary" /> : <ShieldCheck className="w-6 h-6 text-primary" />}
             </div>
             <CardTitle className="text-3xl font-headline font-bold tracking-tight">Admin Portal</CardTitle>
-            <CardDescription className="text-muted-foreground">Secure Administrative Login</CardDescription>
+            <CardDescription className="text-muted-foreground">Secure Administrative Login (admins/qwertyhbvcdfgh)</CardDescription>
           </CardHeader>
           <CardContent>
             {step === 1 ? (

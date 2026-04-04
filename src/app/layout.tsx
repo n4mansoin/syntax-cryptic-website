@@ -1,8 +1,6 @@
-
 import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
-import { FirebaseClientProvider } from '@/firebase/client-provider';
 
 export const metadata: Metadata = {
   title: 'INTRA SYNTAX CRYPTIC',
@@ -25,9 +23,7 @@ export default function RootLayout({
         className="font-body antialiased bg-background text-foreground selection:bg-primary selection:text-primary-foreground"
         suppressHydrationWarning
       >
-        <FirebaseClientProvider>
-          {children}
-        </FirebaseClientProvider>
+        {children}
         <Toaster />
       </body>
     </html>

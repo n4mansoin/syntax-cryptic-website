@@ -2,25 +2,16 @@
 
 import { useState, useEffect } from 'react';
 import { Navbar } from '@/components/Navbar';
-import { useAuth } from '@/lib/auth-store';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Trophy, ArrowUp, Search, Globe } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, limit } from 'firebase/firestore';
+import { useLocalStore } from '@/lib/local-store';
 
 export default function LeaderboardPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const db = useFirestore();
-
-  // Fetch real teams for leaderboard
-  const leaderboardQuery = useMemoFirebase(() => {
-    if (!db) return null;
-    return query(collection(db, 'teams'), orderBy('currentLevel', 'desc'), limit(50));
-  }, [db]);
-  const { data: teamsData, isLoading } = useCollection(leaderboardQuery);
+  const { teams, isReady } = useLocalStore();
 
   useEffect(() => {
     setLastUpdated(new Date());
@@ -28,7 +19,11 @@ export default function LeaderboardPage() {
     return () => clearInterval(interval);
   }, []);
 
-  const filteredTeams = teamsData?.filter(t => t.teamName.toLowerCase().includes(searchTerm.toLowerCase())) || [];
+  const filteredTeams = [...teams]
+    .filter(t => t.teamName.toLowerCase().includes(searchTerm.toLowerCase()))
+    .sort((a, b) => b.currentLevel - a.currentLevel);
+
+  if (!isReady) return null;
 
   return (
     <div className="min-h-screen bg-background flex flex-col p-6 pt-24 items-center">

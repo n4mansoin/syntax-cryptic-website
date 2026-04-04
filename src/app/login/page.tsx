@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth as useAppStore } from '@/lib/auth-store';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -11,9 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Navbar } from '@/components/Navbar';
 import { Terminal, Lock, User, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth, useFirestore, useUser } from '@/firebase';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { useLocalStore } from '@/lib/local-store';
 
 export default function LoginPage() {
   const [teamName, setTeamName] = useState('');
@@ -21,62 +18,41 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const { loginTeam } = useAppStore();
-  const firebaseAuth = useAuth();
-  const { user, isUserLoading } = useUser();
-  const db = useFirestore();
+  const { addTeam, teams } = useLocalStore();
   const { toast } = useToast();
-
-  useEffect(() => {
-    if (!isUserLoading && user) {
-      router.push('/hunt');
-    }
-  }, [user, isUserLoading, router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    
-    const email = `${teamName.toLowerCase().trim()}@intra-syntax.com`;
 
-    try {
-      let userCredential;
-      try {
-        userCredential = await signInWithEmailAndPassword(firebaseAuth, email, password);
-      } catch (authError: any) {
-        if (authError.code === 'auth/user-not-found' || authError.code === 'auth/invalid-credential' || authError.code === 'auth/invalid-email') {
-          userCredential = await createUserWithEmailAndPassword(firebaseAuth, email, password);
-        } else {
-          throw authError;
-        }
+    // Hardcoded credentials for the prototype
+    const isValid = teamName.toLowerCase() === 'test123' && password === 'testing';
+
+    if (isValid) {
+      const teamId = 'team-test123';
+      const existingTeam = teams.find(t => t.id === teamId);
+      
+      if (!existingTeam) {
+        addTeam({
+          id: teamId,
+          teamName: teamName,
+          currentLevel: 1,
+          flagCount: 0,
+          penaltyUntil: null
+        });
       }
 
-      if (userCredential.user) {
-        const teamDocRef = doc(db, 'teams', userCredential.user.uid);
-        const teamSnap = await getDoc(teamDocRef);
-        
-        if (!teamSnap.exists()) {
-          await setDoc(teamDocRef, {
-            teamName: teamName,
-            currentLevel: 1,
-            flagCount: 0,
-            penaltyUntil: null
-          });
-        }
-
-        loginTeam(userCredential.user.uid, teamName);
-        toast({ title: "Decryption Successful", description: `Connection established.` });
-        router.push('/hunt');
-      }
-    } catch (error: any) {
-      console.error(error);
+      loginTeam(teamId, teamName);
+      toast({ title: "Decryption Successful", description: `Connection established.` });
+      router.push('/hunt');
+    } else {
       toast({ 
         variant: "destructive", 
         title: "Authentication Failed", 
-        description: "Verify your credentials and try again." 
+        description: "Invalid credentials. Use test123/testing." 
       });
-    } finally {
-      setLoading(false);
     }
+    setLoading(false);
   };
 
   return (
@@ -90,7 +66,7 @@ export default function LoginPage() {
               <Terminal className="w-6 h-6 text-primary" />
             </div>
             <CardTitle className="text-3xl font-headline font-bold tracking-tight">Team Portal</CardTitle>
-            <CardDescription className="text-muted-foreground">Access the cryptic network</CardDescription>
+            <CardDescription className="text-muted-foreground">Access the cryptic network (test123/testing)</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleLogin} className="space-y-6">

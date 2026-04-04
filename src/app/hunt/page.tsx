@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -9,15 +8,14 @@ import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { Terminal, Send, Timer, HelpCircle, Lightbulb, CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore, useCollection, useMemoFirebase, useDoc, useUser } from '@/firebase';
-import { collection, query, orderBy, where, doc, updateDoc } from 'firebase/firestore';
-import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { useAuth } from '@/lib/auth-store';
+import { useLocalStore } from '@/lib/local-store';
 
 export default function HuntPage() {
-  const { user, isUserLoading } = useUser();
+  const { auth, loading: authLoading } = useAuth();
+  const { levels, teams, hints, hintRequests, updateTeam, addHintRequest, isReady } = useLocalStore();
   const router = useRouter();
   const { toast } = useToast();
-  const db = useFirestore();
   
   const [answer, setAnswer] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -29,52 +27,24 @@ export default function HuntPage() {
   }, []);
 
   useEffect(() => {
-    if (isMounted && !isUserLoading && !user) {
+    if (isMounted && !authLoading && !auth.teamId) {
       router.push('/login');
     }
-  }, [user, isUserLoading, router, isMounted]);
+  }, [auth, authLoading, router, isMounted]);
 
-  const teamDocRef = useMemoFirebase(() => {
-    if (!db || !user?.uid) return null;
-    return doc(db, 'teams', user.uid);
-  }, [db, user?.uid]);
-  const { data: teamData, isLoading: teamLoading } = useDoc(teamDocRef);
-
-  const levelsQuery = useMemoFirebase(() => {
-    if (!db || !user) return null;
-    return query(collection(db, 'levels'), orderBy('order', 'asc'));
-  }, [db, user]);
-  const { data: levels, isLoading: levelsLoading } = useCollection(levelsQuery);
-
+  const teamData = teams.find(t => t.id === auth.teamId);
   const currentLevelNumber = teamData?.currentLevel || 1;
-  const currentLevel = levels?.find(l => l.order === currentLevelNumber);
-
-  const hintRequestsQuery = useMemoFirebase(() => {
-    if (!db || !user?.uid || !currentLevel?.id) return null;
-    return query(
-      collection(db, 'hintRequests'), 
-      where('teamId', '==', user.uid),
-      where('levelId', '==', currentLevel.id)
-    );
-  }, [db, user?.uid, currentLevel?.id]);
-  const { data: hintRequests } = useCollection(hintRequestsQuery);
-
-  const releasedHintsQuery = useMemoFirebase(() => {
-    if (!db || !user || !currentLevel?.id) return null;
-    return query(
-      collection(db, 'hints'),
-      where('levelId', '==', currentLevel.id),
-      where('isReleased', '==', true)
-    );
-  }, [db, user, currentLevel?.id]);
-  const { data: releasedHints } = useCollection(releasedHintsQuery);
+  const currentLevel = levels.find(l => l.order === currentLevelNumber);
+  
+  const hasRequestedHint = hintRequests.some(r => r.teamId === auth.teamId && r.levelId === currentLevel?.id);
+  const releasedHints = hints.filter(h => h.levelId === currentLevel?.id && h.isReleased);
 
   useEffect(() => {
-    if (isMounted && user && !teamLoading) {
+    if (isMounted && auth.teamId && isReady) {
       const timer = setInterval(() => setLevelTimer(prev => prev + 1), 1000);
       return () => clearInterval(timer);
     }
-  }, [user, teamLoading, isMounted]);
+  }, [auth, isReady, isMounted]);
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -82,13 +52,11 @@ export default function HuntPage() {
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  const hasRequestedHint = hintRequests && hintRequests.length > 0;
-
   const handleRequestHint = () => {
-    if (!db || !user?.uid || !currentLevel?.id) return;
+    if (!auth.teamId || !currentLevel?.id) return;
     
-    addDocumentNonBlocking(collection(db, 'hintRequests'), {
-      teamId: user.uid,
+    addHintRequest({
+      teamId: auth.teamId,
       levelId: currentLevel.id,
       requestedAt: new Date().toISOString()
     });
@@ -99,23 +67,17 @@ export default function HuntPage() {
     });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!answer.trim() || !db || !user?.uid || !currentLevel || !teamDocRef) return;
+    if (!answer.trim() || !auth.teamId || !currentLevel) return;
     setSubmitting(true);
 
     const isCorrect = answer.toUpperCase().trim() === currentLevel.answer.toUpperCase().trim();
 
     if (isCorrect) {
-      try {
-        await updateDoc(teamDocRef, {
-          currentLevel: currentLevelNumber + 1
-        });
-        toast({ title: "Decryption Successful", description: "Advancing to next layer." });
-        setAnswer('');
-      } catch (error: any) {
-        toast({ variant: "destructive", title: "Transmission Error", description: "Failed to update progress." });
-      }
+      updateTeam(auth.teamId, { currentLevel: currentLevelNumber + 1 });
+      toast({ title: "Decryption Successful", description: "Advancing to next layer." });
+      setAnswer('');
     } else {
       toast({ 
         variant: "destructive", 
@@ -126,7 +88,7 @@ export default function HuntPage() {
     setSubmitting(false);
   };
 
-  if (!isMounted || isUserLoading) {
+  if (!isMounted || authLoading || !isReady) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -134,7 +96,7 @@ export default function HuntPage() {
     );
   }
 
-  if (!user) return null;
+  if (!auth.teamId) return null;
 
   const progressPercentage = Math.max(0, Math.min(100, (currentLevelNumber - 1) * 20));
 
@@ -167,12 +129,7 @@ export default function HuntPage() {
         </div>
 
         <div className="flex flex-col items-center space-y-12 py-12">
-          {teamLoading || levelsLoading ? (
-            <div className="flex flex-col items-center gap-4">
-              <Loader2 className="w-12 h-12 animate-spin text-primary opacity-20" />
-              <p className="text-[10px] uppercase tracking-[0.4em] font-mono text-white/20">Establishing Secure Uplink...</p>
-            </div>
-          ) : currentLevelNumber > 5 ? (
+          {currentLevelNumber > 5 ? (
             <div className="flex flex-col items-center gap-6 py-12">
               <CheckCircle2 className="w-20 h-20 text-primary" />
               <h3 className="text-4xl font-headline font-bold uppercase tracking-tighter">Signal Decrypted</h3>
@@ -183,13 +140,8 @@ export default function HuntPage() {
               <AlertCircle className="w-16 h-16 text-yellow-500/50" />
               <div className="space-y-2">
                 <h3 className="text-xl font-bold uppercase">No Signals Found</h3>
-                <p className="text-sm text-muted-foreground">The cryptic transmission hasn't been initialized yet. If you are the system administrator, please visit the setup portal to seed the levels.</p>
+                <p className="text-sm text-muted-foreground">Level data mismatch. Please contact support.</p>
               </div>
-              {(user.email === 'admin@intra-syntax.com' || user.email === 'admins@intra-syntax.com') && (
-                <Button onClick={() => router.push('/admin/setup')} variant="outline" className="border-primary/20 text-primary hover:bg-primary/10 h-12 px-8 font-bold">
-                  INITIALIZE DATABASE
-                </Button>
-              )}
             </div>
           ) : (
             <>
@@ -227,11 +179,11 @@ export default function HuntPage() {
                 ) : (
                   <div className="p-6 bg-primary/5 border border-primary/20 rounded-xl animate-scale-up text-center space-y-4">
                     <div className="flex items-center justify-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-primary" />
+                      <CheckCircle2 className="h-4 w-4 text-primary" />
                       <span className="text-[10px] text-primary uppercase font-bold tracking-[0.3em]">Status: Hint Requested</span>
                     </div>
                     
-                    {releasedHints && releasedHints.length > 0 ? (
+                    {releasedHints.length > 0 ? (
                       <div className="space-y-2 text-left">
                         <p className="text-[10px] uppercase font-bold text-primary/70">Released Hints:</p>
                         {releasedHints.map((hint) => (
