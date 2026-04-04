@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth as useAppAuth } from '@/lib/auth-store';
+import { useAuth } from '@/lib/auth-store';
 import { Navbar } from '@/components/Navbar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -14,7 +14,7 @@ import { useLocalStore } from '@/lib/local-store';
 import { Input } from '@/components/ui/input';
 
 export default function AdminDashboard() {
-  const { auth, loading: authLoading } = useAppAuth();
+  const { auth, loading: authLoading } = useAuth();
   const { teams, levels, hintRequests, hints, addHint, isReady } = useLocalStore();
   const router = useRouter();
   const [isMounted, setIsMounted] = useState(false);

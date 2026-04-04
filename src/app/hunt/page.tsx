@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -14,7 +13,7 @@ import { useLocalStore } from '@/lib/local-store';
 
 export default function HuntPage() {
   const { auth, loading: authLoading } = useAuth();
-  const { levels, teams, hints, hintRequests, updateTeam, addHintRequest, isReady, addTeam } = useLocalStore();
+  const { levels, teams, hints, hintRequests, updateTeam, addHintRequest, isReady } = useLocalStore();
   const router = useRouter();
   const { toast } = useToast();
   
@@ -32,22 +31,6 @@ export default function HuntPage() {
       router.push('/login');
     }
   }, [auth, authLoading, router, isMounted]);
-
-  // Ensure the team object exists in local storage
-  useEffect(() => {
-    if (isMounted && isReady && auth.teamId && auth.teamName) {
-      const existing = teams.find(t => t.id === auth.teamId);
-      if (!existing) {
-        addTeam({
-          id: auth.teamId,
-          teamName: auth.teamName,
-          currentLevel: 1,
-          flagCount: 0,
-          penaltyUntil: null
-        });
-      }
-    }
-  }, [isMounted, isReady, auth, teams, addTeam]);
 
   const teamData = teams.find(t => t.id === auth.teamId);
   const currentLevelNumber = teamData?.currentLevel || 1;
@@ -177,9 +160,9 @@ export default function HuntPage() {
                   value={answer}
                   onChange={(e) => setAnswer(e.target.value)}
                   placeholder="INPUT DECRYPTION KEY"
-                  className="h-16 text-xl text-center bg-card border-white/5 focus:border-primary font-mono uppercase tracking-[0.3em] rounded-xl"
+                  className="h-16 text-xl text-center bg-card border-white/5 focus:border-primary font-mono uppercase tracking-[0.3em] rounded-xl text-white"
                 />
-                <Button disabled={submitting} type="submit" className="w-full h-14 text-lg font-bold bg-primary hover:bg-primary/90 transition-all rounded-xl group">
+                <Button disabled={submitting} type="submit" className="w-full h-14 text-lg font-bold bg-primary hover:bg-primary/90 transition-all rounded-xl group text-white">
                   {submitting ? "VERIFYING..." : "EXECUTE SUBMISSION"}
                   {!submitting && <Send className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />}
                 </Button>

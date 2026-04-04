@@ -1,9 +1,8 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth as useAppStore } from '@/lib/auth-store';
+import { useAuth } from '@/lib/auth-store';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -18,7 +17,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const { loginTeam, auth, loading: authLoading } = useAppStore();
+  const { loginTeam, auth, loading: authLoading } = useAuth();
   const { addTeam, teams, isReady } = useLocalStore();
   const { toast } = useToast();
 
@@ -28,12 +27,12 @@ export default function LoginPage() {
     }
   }, [auth, authLoading, router]);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     // Hardcoded credentials: test123 / testing
-    const isValid = teamName.toLowerCase() === 'test123' && password === 'testing';
+    const isValid = teamName === 'test123' && password === 'testing';
 
     if (isValid) {
       const teamId = 'team-test123';
@@ -51,16 +50,18 @@ export default function LoginPage() {
 
       loginTeam(teamId, teamName);
       toast({ title: "Decryption Successful", description: `Connection established.` });
-      router.push('/hunt');
+      // Navigation is handled by the useEffect
     } else {
       toast({ 
         variant: "destructive", 
         title: "Authentication Failed", 
-        description: "Invalid credentials. Use test123 / testing." 
+        description: "Invalid credentials (test123 / testing)." 
       });
     }
     setLoading(false);
   };
+
+  if (authLoading) return null;
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
@@ -72,20 +73,20 @@ export default function LoginPage() {
             <div className="mx-auto w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
               <Terminal className="w-6 h-6 text-primary" />
             </div>
-            <CardTitle className="text-3xl font-headline font-bold tracking-tight">Team Portal</CardTitle>
-            <CardDescription className="text-muted-foreground">Access the cryptic network (test123/testing)</CardDescription>
+            <CardTitle className="text-3xl font-headline font-bold tracking-tight text-white">Team Portal</CardTitle>
+            <CardDescription className="text-muted-foreground font-mono text-[10px] uppercase">Awaiting Terminal Credentials</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleLogin} className="space-y-6">
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="teamName" className="text-xs font-semibold uppercase tracking-widest text-primary/70 ml-1">Team Identity</Label>
+                  <Label htmlFor="teamName" className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary/70">Terminal ID</Label>
                   <div className="relative group">
                     <User className="absolute left-3 top-3 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                     <Input 
                       id="teamName" 
-                      placeholder="e.g. test123" 
-                      className="pl-10 h-12 bg-background border-white/5 focus:border-primary/50 font-mono" 
+                      placeholder="test123" 
+                      className="pl-10 h-12 bg-background border-white/5 focus:border-primary/50 font-mono text-white" 
                       value={teamName}
                       onChange={(e) => setTeamName(e.target.value)}
                       required
@@ -93,14 +94,14 @@ export default function LoginPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="password" className="text-xs font-semibold uppercase tracking-widest text-primary/70 ml-1">Access Key</Label>
+                  <Label htmlFor="password" className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary/70">Access Key</Label>
                   <div className="relative group">
                     <Lock className="absolute left-3 top-3 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                     <Input 
                       id="password" 
                       type="password" 
                       placeholder="••••••••" 
-                      className="pl-10 h-12 bg-background border-white/5 focus:border-primary/50" 
+                      className="pl-10 h-12 bg-background border-white/5 focus:border-primary/50 font-mono text-white" 
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
@@ -108,7 +109,7 @@ export default function LoginPage() {
                   </div>
                 </div>
               </div>
-              <Button type="submit" disabled={loading} className="w-full h-12 text-sm font-bold bg-primary hover:bg-primary/90 transition-all">
+              <Button type="submit" disabled={loading} className="w-full h-12 font-bold bg-primary hover:bg-primary/90 text-white uppercase tracking-widest">
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "DECRYPT ACCESS"}
               </Button>
             </form>

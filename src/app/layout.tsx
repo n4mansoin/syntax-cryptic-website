@@ -1,7 +1,7 @@
-
 import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
+import { AuthProvider } from '@/lib/auth-store';
 
 export const metadata: Metadata = {
   title: 'INTRA SYNTAX CRYPTIC',
@@ -24,8 +24,10 @@ export default function RootLayout({
         className="font-body antialiased bg-background text-foreground selection:bg-primary selection:text-primary-foreground"
         suppressHydrationWarning
       >
-        {children}
-        <Toaster />
+        <AuthProvider>
+          {children}
+          <Toaster />
+        </AuthProvider>
       </body>
     </html>
   );
