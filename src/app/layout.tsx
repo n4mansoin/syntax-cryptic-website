@@ -25,12 +25,12 @@ export default function RootLayout({
         className="font-body antialiased bg-background text-foreground selection:bg-primary selection:text-primary-foreground"
         suppressHydrationWarning
       >
-        <AuthProvider>
-          <RealtimeSyncEngine>
+        <RealtimeSyncEngine>
+          <AuthProvider>
             {children}
             <Toaster />
-          </RealtimeSyncEngine>
-        </AuthProvider>
+          </AuthProvider>
+        </RealtimeSyncEngine>
       </body>
     </html>
   );

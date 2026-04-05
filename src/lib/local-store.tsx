@@ -4,11 +4,10 @@ import React, { createContext, useContext, useState, useEffect, ReactNode, useCa
 import initialLevels from '@/data/levels.json';
 import initialTeams from '@/data/teams.json';
 
-// Types
 export interface Team {
   id: string;
   teamName: string;
-  password?: string;
+  passwordHash?: string;
   currentLevel: number;
   flagCount: number;
   penaltyUntil: string | null;
@@ -70,10 +69,6 @@ const STORAGE_KEYS: Record<keyof StoreState, string> = {
   flags: 'is_flags',
 };
 
-/**
- * RealtimeSyncEngine: Single source of truth for the application.
- * Manages state across tabs using BroadcastChannel and persists to LocalStorage.
- */
 export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
   const [state, setState] = useState<StoreState>({
     teams: [],
@@ -84,7 +79,6 @@ export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
   });
   const [isReady, setIsReady] = useState(false);
 
-  // Cross-tab synchronization
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
@@ -99,7 +93,6 @@ export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
 
     channel.onmessage = handleMessage;
 
-    // Load initial state from LocalStorage or seed data
     const loadState = () => {
       const newState: StoreState = {
         teams: JSON.parse(localStorage.getItem(STORAGE_KEYS.teams) || '[]'),
@@ -109,7 +102,6 @@ export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
         flags: JSON.parse(localStorage.getItem(STORAGE_KEYS.flags) || '[]'),
       };
 
-      // Seed if empty (first run)
       if (newState.levels.length === 0) {
         newState.levels = initialLevels as Level[];
         localStorage.setItem(STORAGE_KEYS.levels, JSON.stringify(newState.levels));
@@ -130,16 +122,10 @@ export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  /**
-   * Controlled update pipeline for state mutations.
-   */
   const updateStore = useCallback(<K extends keyof StoreState>(key: K, data: StoreState[K], broadcast = true) => {
     setState(prev => ({ ...prev, [key]: data }));
-    
-    // Persistence
     localStorage.setItem(STORAGE_KEYS[key], JSON.stringify(data));
     
-    // Broadcast update to other tabs
     if (broadcast) {
       const channel = new BroadcastChannel('intra_syntax_sync');
       channel.postMessage({ key, data });

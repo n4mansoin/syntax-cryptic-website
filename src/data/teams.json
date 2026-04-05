@@ -2,7 +2,7 @@
   {
     "id": "team-test123",
     "teamName": "test123",
-    "password": "testing",
+    "passwordHash": "06f140660600989d31f0f0c086782531e285a9f24823908c87102e9a59489f41",
     "currentLevel": 1,
     "flagCount": 0,
     "penaltyUntil": null,
@@ -11,7 +11,7 @@
   {
     "id": "team-test1",
     "teamName": "test1",
-    "password": "testingstill",
+    "passwordHash": "9b1c7c938d28e7e2311547385a42095874284521006542100021489100062489",
     "currentLevel": 1,
     "flagCount": 0,
     "penaltyUntil": null,
