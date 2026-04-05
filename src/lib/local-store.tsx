@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
@@ -94,20 +95,37 @@ export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
     channel.onmessage = handleMessage;
 
     const loadState = () => {
-      const newState: StoreState = {
-        teams: JSON.parse(localStorage.getItem(STORAGE_KEYS.teams) || '[]'),
-        levels: JSON.parse(localStorage.getItem(STORAGE_KEYS.levels) || '[]'),
-        hints: JSON.parse(localStorage.getItem(STORAGE_KEYS.hints) || '[]'),
-        attempts: JSON.parse(localStorage.getItem(STORAGE_KEYS.attempts) || '[]'),
-        flags: JSON.parse(localStorage.getItem(STORAGE_KEYS.flags) || '[]'),
-      };
+      // Load current state from localStorage
+      const teams = JSON.parse(localStorage.getItem(STORAGE_KEYS.teams) || '[]') as Team[];
+      const levels = JSON.parse(localStorage.getItem(STORAGE_KEYS.levels) || '[]') as Level[];
+      const hints = JSON.parse(localStorage.getItem(STORAGE_KEYS.hints) || '[]') as Hint[];
+      const attempts = JSON.parse(localStorage.getItem(STORAGE_KEYS.attempts) || '[]') as Attempt[];
+      const flags = JSON.parse(localStorage.getItem(STORAGE_KEYS.flags) || '[]') as Flag[];
 
+      const newState: StoreState = { teams, levels, hints, attempts, flags };
+
+      // Ensure initial levels are present
       if (newState.levels.length === 0) {
         newState.levels = initialLevels as Level[];
         localStorage.setItem(STORAGE_KEYS.levels, JSON.stringify(newState.levels));
       }
-      if (newState.teams.length === 0) {
-        newState.teams = initialTeams as Team[];
+
+      // Merge initial teams if they don't exist in local storage (handles new test accounts)
+      const initialTeamsTyped = initialTeams as Team[];
+      let teamsUpdated = false;
+      initialTeamsTyped.forEach(it => {
+        const existing = newState.teams.find(t => t.id === it.id);
+        if (!existing) {
+          newState.teams.push(it);
+          teamsUpdated = true;
+        } else if (existing.passwordHash !== it.passwordHash) {
+          // Update password if it changed in the JSON (important for test accounts)
+          existing.passwordHash = it.passwordHash;
+          teamsUpdated = true;
+        }
+      });
+
+      if (newState.teams.length === 0 || teamsUpdated) {
         localStorage.setItem(STORAGE_KEYS.teams, JSON.stringify(newState.teams));
       }
 

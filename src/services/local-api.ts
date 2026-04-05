@@ -1,3 +1,4 @@
+
 'use client';
 
 import { sha256, normalizeAnswer } from '@/utils/hash';
@@ -19,7 +20,6 @@ export const localApi = {
     
     // Admin Root Override
     if (cleanName === 'admin' && cleanPassword === 'qawsedrftg') {
-      console.log("DEBUG: Admin credentials matched.");
       return { 
         id: 'admin-root', 
         teamName: 'admin', 
@@ -33,8 +33,8 @@ export const localApi = {
     // Hash input password with Secret Key: SHA256(SECRET_KEY + password)
     const inputHash = await sha256(SECRET_KEY + cleanPassword);
     
-    console.log("DEBUG: Login Attempt - Name:", cleanName);
-    console.log("DEBUG: Generated Hash:", inputHash);
+    console.log(`DEBUG: Attempting login for ${cleanName}`);
+    console.log(`DEBUG: Input Hash: ${inputHash}`);
 
     const team = state.teams.find(t => 
       t.teamName.toLowerCase() === cleanName && 
@@ -42,9 +42,9 @@ export const localApi = {
     );
     
     if (team) {
-      console.log("DEBUG: Team found and authenticated.");
+      console.log("DEBUG: Authentication successful.");
     } else {
-      console.warn("DEBUG: No team matched name and hash.");
+      console.warn("DEBUG: Authentication failed. No match found.");
     }
     
     return team || null;
