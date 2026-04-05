@@ -17,6 +17,7 @@ export const localApi = {
     
     // Admin Root Credentials
     if (cleanName === 'admin' && cleanPassword === 'qawsedrftg') {
+      console.log("[AUTH] Admin access detected.");
       return { 
         id: 'admin-root', 
         teamName: 'admin', 
@@ -27,22 +28,25 @@ export const localApi = {
       } as Team;
     }
 
+    // Hash the input password using the mandatory secret key prefix
     const inputHash = await sha256(SECRET_KEY + cleanPassword);
     
-    console.log(`[AUTH] Verifying Identity: ${cleanName}`);
+    console.log(`[AUTH] Attempting login for: ${cleanName}`);
     
-    const team = state.teams.find(t => 
-      t.teamName.toLowerCase() === cleanName && 
-      t.passwordHash === inputHash
-    );
+    // Robust search with normalization on both sides
+    const team = state.teams.find(t => {
+      const storedName = (t.teamName || '').trim().toLowerCase();
+      const storedHash = (t.passwordHash || '').trim();
+      return storedName === cleanName && storedHash === inputHash;
+    });
     
     if (team) {
-      console.log("[AUTH] Signal Verified.");
+      console.log("[AUTH] Credentials verified successfully.");
+      return team;
     } else {
-      console.warn("[AUTH] Authentication Failed. Signal Rejected.");
+      console.warn("[AUTH] Login failed: Identity mismatch or invalid hash.");
+      return null;
     }
-    
-    return team || null;
   },
 
   async submitAnswer(teamId: string, levelId: string, userInput: string, { state, updateStore }: StoreContext) {

@@ -38,6 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { state, isReady } = useStore();
 
   useEffect(() => {
+    // Wait for the RealtimeSyncEngine to populate teams from JSON/LocalStorage
     if (!isReady) return;
 
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -53,6 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             adminId: 'admin-root'
           });
         } else if (parsed.teamId) {
+          // Verify team still exists in the latest synchronized store
           const team = state.teams.find(t => t.id === parsed.teamId);
           if (team) {
             setAuth({
@@ -62,6 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               adminId: null,
             });
           } else {
+            // Team ID invalid or removed (clean stale session)
             localStorage.removeItem(STORAGE_KEY);
             setAuth(INITIAL_STATE);
           }

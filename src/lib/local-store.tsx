@@ -95,32 +95,48 @@ export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
     channel.onmessage = handleMessage;
 
     const loadState = () => {
-      const teams = JSON.parse(localStorage.getItem(STORAGE_KEYS.teams) || '[]') as Team[];
-      const levels = JSON.parse(localStorage.getItem(STORAGE_KEYS.levels) || '[]') as Level[];
-      const hints = JSON.parse(localStorage.getItem(STORAGE_KEYS.hints) || '[]') as Hint[];
-      const attempts = JSON.parse(localStorage.getItem(STORAGE_KEYS.attempts) || '[]') as Attempt[];
-      const flags = JSON.parse(localStorage.getItem(STORAGE_KEYS.flags) || '[]') as Flag[];
+      const rawTeams = localStorage.getItem(STORAGE_KEYS.teams);
+      const rawLevels = localStorage.getItem(STORAGE_KEYS.levels);
+      const rawHints = localStorage.getItem(STORAGE_KEYS.hints);
+      const rawAttempts = localStorage.getItem(STORAGE_KEYS.attempts);
+      const rawFlags = localStorage.getItem(STORAGE_KEYS.flags);
+
+      const teams = JSON.parse(rawTeams || '[]') as Team[];
+      const levels = JSON.parse(rawLevels || '[]') as Level[];
+      const hints = JSON.parse(rawHints || '[]') as Hint[];
+      const attempts = JSON.parse(rawAttempts || '[]') as Attempt[];
+      const flags = JSON.parse(rawFlags || '[]') as Flag[];
 
       const newState: StoreState = { teams, levels, hints, attempts, flags };
 
-      // Sync levels and teams from JSON to ensure credentials and questions are fresh
+      // Aggressive Sync: Ensure JSON-defined credentials and questions are forced into state
       newState.levels = initialLevels as Level[];
       const initialTeamsTyped = initialTeams as Team[];
       
-      let teamsUpdated = false;
+      let storeNeedsUpdate = false;
       initialTeamsTyped.forEach(it => {
         const existingIndex = newState.teams.findIndex(t => t.id === it.id);
         if (existingIndex === -1) {
+          // Add missing test account
           newState.teams.push(it);
-          teamsUpdated = true;
-        } else if (newState.teams[existingIndex].passwordHash !== it.passwordHash) {
-          newState.teams[existingIndex].passwordHash = it.passwordHash;
-          teamsUpdated = true;
+          storeNeedsUpdate = true;
+        } else {
+          // Force credential refresh if hashes mismatch
+          if (newState.teams[existingIndex].passwordHash !== it.passwordHash) {
+            newState.teams[existingIndex].passwordHash = it.passwordHash;
+            storeNeedsUpdate = true;
+          }
+          // Ensure team name is synchronized
+          if (newState.teams[existingIndex].teamName !== it.teamName) {
+            newState.teams[existingIndex].teamName = it.teamName;
+            storeNeedsUpdate = true;
+          }
         }
       });
 
+      // Persist force-synced credentials
       localStorage.setItem(STORAGE_KEYS.levels, JSON.stringify(newState.levels));
-      if (teamsUpdated) {
+      if (storeNeedsUpdate) {
         localStorage.setItem(STORAGE_KEYS.teams, JSON.stringify(newState.teams));
       }
 
