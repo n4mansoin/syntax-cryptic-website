@@ -1,37 +1,33 @@
+
 [
   {
     "id": "lvl1",
     "order": 1,
     "question": "The first key is hidden in plain sight. What is the sum of 10 and 20?",
-    "answerHash": "70335e317c2a7e78170c4826850387588e7a04853e5e0136894c34537c3a0b5a",
-    "salt": "s1"
+    "answer": "30"
   },
   {
     "id": "lvl2",
     "order": 2,
     "question": "I speak without a mouth and hear without ears. I have no body, but I come alive with wind. What am I?",
-    "answerHash": "a3b4c5d6e7f8g9h0a1b2c3d4e5f6g7h8a9b0c1d2e3f4g5h6a7b8c9d0e1f2g3h4",
-    "salt": "s2"
+    "answer": "ECHO"
   },
   {
     "id": "lvl3",
     "order": 3,
     "question": "The more of this there is, the less you see. What is it?",
-    "answerHash": "b1c2d3e4f5g6h7i8j9k0l1m2n3o4p5q6r7s8t9u0v1w2x3y4z5a6b7c8d9e0f1g2",
-    "salt": "s3"
+    "answer": "DARKNESS"
   },
   {
     "id": "lvl4",
     "order": 4,
     "question": "I have keys, but no locks and space, and no rooms. You can enter, but never leave. What am I?",
-    "answerHash": "c1d2e3f4g5h6i7j8k9l0m1n2o3p4q5r6s7t8u9v0w1x2y3z4a5b6c7d8e9f0g1h2",
-    "salt": "s4"
+    "answer": "KEYBOARD"
   },
   {
     "id": "lvl5",
     "order": 5,
     "question": "What has a head and a tail but no body?",
-    "answerHash": "d1e2f3g4h5i6j7k8l9m0n1o2p3q4r5s6t7u8v9w0x1y2z3a4b5c6d7e8f9g0h1i2",
-    "salt": "s5"
+    "answer": "COIN"
   }
 ]

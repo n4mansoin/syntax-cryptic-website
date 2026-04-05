@@ -8,7 +8,7 @@ import initialTeams from '@/data/teams.json';
 export interface Team {
   id: string;
   teamName: string;
-  passwordHash?: string;
+  password?: string;
   currentLevel: number;
   flagCount: number;
   penaltyUntil: string | null;
@@ -19,8 +19,7 @@ export interface Level {
   id: string;
   order: number;
   question: string;
-  answerHash: string;
-  salt: string;
+  answer: string;
 }
 
 export interface Hint {
@@ -109,7 +108,7 @@ export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
 
       const newState: StoreState = { teams, levels, hints, attempts, flags };
 
-      // Aggressive Sync: Ensure JSON-defined credentials and questions are forced into state
+      // Force-Sync Credentials from JSON
       newState.levels = initialLevels as Level[];
       const initialTeamsTyped = initialTeams as Team[];
       
@@ -117,16 +116,14 @@ export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
       initialTeamsTyped.forEach(it => {
         const existingIndex = newState.teams.findIndex(t => t.id === it.id);
         if (existingIndex === -1) {
-          // Add missing test account
           newState.teams.push(it);
           storeNeedsUpdate = true;
         } else {
-          // Force credential refresh if hashes mismatch
-          if (newState.teams[existingIndex].passwordHash !== it.passwordHash) {
-            newState.teams[existingIndex].passwordHash = it.passwordHash;
+          // Force plain-text password sync
+          if (newState.teams[existingIndex].password !== it.password) {
+            newState.teams[existingIndex].password = it.password;
             storeNeedsUpdate = true;
           }
-          // Ensure team name is synchronized
           if (newState.teams[existingIndex].teamName !== it.teamName) {
             newState.teams[existingIndex].teamName = it.teamName;
             storeNeedsUpdate = true;
@@ -134,7 +131,6 @@ export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
         }
       });
 
-      // Persist force-synced credentials
       localStorage.setItem(STORAGE_KEYS.levels, JSON.stringify(newState.levels));
       if (storeNeedsUpdate) {
         localStorage.setItem(STORAGE_KEYS.teams, JSON.stringify(newState.teams));

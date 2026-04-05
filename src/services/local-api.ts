@@ -1,9 +1,9 @@
 
 'use client';
 
-import { sha256, normalizeAnswer } from '@/utils/hash';
-import { SECRET_KEY, ATTEMPT_LIMIT_PER_MINUTE, PENALTY_DURATION_MINUTES, FLAGS_UNTIL_PENALTY } from '@/utils/constants';
-import { StoreState, Team, Level, Attempt, Flag } from '@/lib/local-store';
+import { normalizeAnswer } from '@/utils/hash';
+import { ATTEMPT_LIMIT_PER_MINUTE, PENALTY_DURATION_MINUTES, FLAGS_UNTIL_PENALTY } from '@/utils/constants';
+import { StoreState, Team, Attempt } from '@/lib/local-store';
 
 interface StoreContext {
   state: StoreState;
@@ -17,7 +17,6 @@ export const localApi = {
     
     // Admin Root Credentials
     if (cleanName === 'admin' && cleanPassword === 'qawsedrftg') {
-      console.log("[AUTH] Admin access detected.");
       return { 
         id: 'admin-root', 
         teamName: 'admin', 
@@ -28,25 +27,14 @@ export const localApi = {
       } as Team;
     }
 
-    // Hash the input password using the mandatory secret key prefix
-    const inputHash = await sha256(SECRET_KEY + cleanPassword);
-    
-    console.log(`[AUTH] Attempting login for: ${cleanName}`);
-    
-    // Robust search with normalization on both sides
+    // Direct comparison (Plain Text)
     const team = state.teams.find(t => {
       const storedName = (t.teamName || '').trim().toLowerCase();
-      const storedHash = (t.passwordHash || '').trim();
-      return storedName === cleanName && storedHash === inputHash;
+      const storedPassword = (t.password || '').trim();
+      return storedName === cleanName && storedPassword === cleanPassword;
     });
     
-    if (team) {
-      console.log("[AUTH] Credentials verified successfully.");
-      return team;
-    } else {
-      console.warn("[AUTH] Login failed: Identity mismatch or invalid hash.");
-      return null;
-    }
+    return team || null;
   },
 
   async submitAnswer(teamId: string, levelId: string, userInput: string, { state, updateStore }: StoreContext) {
@@ -57,9 +45,8 @@ export const localApi = {
     const team = { ...teams[teamIndex] };
     const now = new Date();
 
-    // Re-verify penalty with fresh server-time logic
     if (team.penaltyUntil && new Date(team.penaltyUntil) > now) {
-      return { success: false, message: "System lockout active. Terminal suppressed." };
+      return { success: false, message: "System lockout active." };
     }
 
     const attempts = [...state.attempts];
@@ -67,16 +54,17 @@ export const localApi = {
     const recentAttempts = attempts.filter(a => a.teamId === teamId && new Date(a.timestamp) > oneMinuteAgo);
 
     if (recentAttempts.length >= ATTEMPT_LIMIT_PER_MINUTE) {
-      this.flagTeam(teamId, "Protocol Violation: High-frequency decryption attempt", { state, updateStore });
+      this.flagTeam(teamId, "Protocol Violation: High-frequency attempts", { state, updateStore });
       return { success: false, message: "Rate limit breach. Account flagged.", flagged: true };
     }
 
     const level = state.levels.find(l => l.id === levelId);
     if (!level) return { success: false, message: "Signal synchronization failure." };
 
-    const normalized = normalizeAnswer(userInput);
-    const inputHash = await sha256(level.salt + SECRET_KEY + normalized);
-    const isCorrect = inputHash === level.answerHash;
+    const normalizedInput = normalizeAnswer(userInput);
+    const normalizedAnswer = normalizeAnswer(level.answer);
+    
+    const isCorrect = normalizedInput === normalizedAnswer;
 
     const newAttempt: Attempt = {
       id: Math.random().toString(36).substr(2, 9),
@@ -93,10 +81,10 @@ export const localApi = {
       team.lastSolvedAt = now.toISOString();
       teams[teamIndex] = team;
       updateStore('teams', teams);
-      return { success: true, message: "Decryption successful. Node breached." };
+      return { success: true, message: "Decryption successful." };
     }
 
-    return { success: false, message: "Decryption failed. Signal rejected." };
+    return { success: false, message: "Decryption failed." };
   },
 
   flagTeam(teamId: string, reason: string, { state, updateStore }: StoreContext) {
@@ -115,7 +103,6 @@ export const localApi = {
     if (teamIndex !== -1) {
       const team = { ...teams[teamIndex] };
       team.flagCount += 1;
-      // Auto-lockout after 3 flags
       if (team.flagCount >= FLAGS_UNTIL_PENALTY) {
         team.penaltyUntil = new Date(now.getTime() + PENALTY_DURATION_MINUTES * 60000).toISOString();
         team.flagCount = 0; 
