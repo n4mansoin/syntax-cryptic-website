@@ -29,18 +29,17 @@ export const localApi = {
 
     const inputHash = await sha256(SECRET_KEY + cleanPassword);
     
-    console.log(`[AUTH] Verifying: ${cleanName}`);
-    console.log(`[AUTH] Hash: ${inputHash}`);
-
+    console.log(`[AUTH] Verifying Identity: ${cleanName}`);
+    
     const team = state.teams.find(t => 
       t.teamName.toLowerCase() === cleanName && 
       t.passwordHash === inputHash
     );
     
     if (team) {
-      console.log("[AUTH] Identity verified.");
+      console.log("[AUTH] Signal Verified.");
     } else {
-      console.warn("[AUTH] Verification failed.");
+      console.warn("[AUTH] Authentication Failed. Signal Rejected.");
     }
     
     return team || null;
@@ -54,6 +53,7 @@ export const localApi = {
     const team = { ...teams[teamIndex] };
     const now = new Date();
 
+    // Re-verify penalty with fresh server-time logic
     if (team.penaltyUntil && new Date(team.penaltyUntil) > now) {
       return { success: false, message: "System lockout active. Terminal suppressed." };
     }
@@ -111,6 +111,7 @@ export const localApi = {
     if (teamIndex !== -1) {
       const team = { ...teams[teamIndex] };
       team.flagCount += 1;
+      // Auto-lockout after 3 flags
       if (team.flagCount >= FLAGS_UNTIL_PENALTY) {
         team.penaltyUntil = new Date(now.getTime() + PENALTY_DURATION_MINUTES * 60000).toISOString();
         team.flagCount = 0; 

@@ -103,12 +103,10 @@ export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
 
       const newState: StoreState = { teams, levels, hints, attempts, flags };
 
-      // Force refresh levels from JSON
+      // Sync levels and teams from JSON to ensure credentials and questions are fresh
       newState.levels = initialLevels as Level[];
-      localStorage.setItem(STORAGE_KEYS.levels, JSON.stringify(newState.levels));
-
-      // Sync test accounts from JSON
       const initialTeamsTyped = initialTeams as Team[];
+      
       let teamsUpdated = false;
       initialTeamsTyped.forEach(it => {
         const existingIndex = newState.teams.findIndex(t => t.id === it.id);
@@ -121,7 +119,8 @@ export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
         }
       });
 
-      if (newState.teams.length === 0 || teamsUpdated) {
+      localStorage.setItem(STORAGE_KEYS.levels, JSON.stringify(newState.levels));
+      if (teamsUpdated) {
         localStorage.setItem(STORAGE_KEYS.teams, JSON.stringify(newState.teams));
       }
 

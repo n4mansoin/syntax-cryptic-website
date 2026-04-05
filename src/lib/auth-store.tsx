@@ -21,7 +21,7 @@ interface AuthContextType {
   logout: () => void;
 }
 
-const STORAGE_KEY = 'cryptic_user_session';
+const STORAGE_KEY = 'cryptic_user_session_v5';
 
 const INITIAL_STATE: AuthState = {
   userType: null,
