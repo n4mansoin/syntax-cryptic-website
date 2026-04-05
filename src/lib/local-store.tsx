@@ -63,11 +63,11 @@ interface StoreContextType {
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
 const STORAGE_KEYS: Record<keyof StoreState, string> = {
-  teams: 'is_teams',
-  levels: 'is_levels',
-  hints: 'is_hints',
-  attempts: 'is_attempts',
-  flags: 'is_flags',
+  teams: 'is_teams_v5',
+  levels: 'is_levels_v5',
+  hints: 'is_hints_v5',
+  attempts: 'is_attempts_v5',
+  flags: 'is_flags_v5',
 };
 
 export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
@@ -83,7 +83,7 @@ export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const channel = new BroadcastChannel('intra_syntax_sync');
+    const channel = new BroadcastChannel('intra_syntax_sync_v5');
     
     const handleMessage = (event: MessageEvent) => {
       const { key, data } = event.data;
@@ -95,7 +95,6 @@ export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
     channel.onmessage = handleMessage;
 
     const loadState = () => {
-      // Load current state from localStorage
       const teams = JSON.parse(localStorage.getItem(STORAGE_KEYS.teams) || '[]') as Team[];
       const levels = JSON.parse(localStorage.getItem(STORAGE_KEYS.levels) || '[]') as Level[];
       const hints = JSON.parse(localStorage.getItem(STORAGE_KEYS.hints) || '[]') as Hint[];
@@ -104,23 +103,20 @@ export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
 
       const newState: StoreState = { teams, levels, hints, attempts, flags };
 
-      // Ensure initial levels are present
-      if (newState.levels.length === 0) {
-        newState.levels = initialLevels as Level[];
-        localStorage.setItem(STORAGE_KEYS.levels, JSON.stringify(newState.levels));
-      }
+      // Force refresh levels from JSON
+      newState.levels = initialLevels as Level[];
+      localStorage.setItem(STORAGE_KEYS.levels, JSON.stringify(newState.levels));
 
-      // Merge initial teams if they don't exist in local storage (handles new test accounts)
+      // Sync test accounts from JSON
       const initialTeamsTyped = initialTeams as Team[];
       let teamsUpdated = false;
       initialTeamsTyped.forEach(it => {
-        const existing = newState.teams.find(t => t.id === it.id);
-        if (!existing) {
+        const existingIndex = newState.teams.findIndex(t => t.id === it.id);
+        if (existingIndex === -1) {
           newState.teams.push(it);
           teamsUpdated = true;
-        } else if (existing.passwordHash !== it.passwordHash) {
-          // Update password if it changed in the JSON (important for test accounts)
-          existing.passwordHash = it.passwordHash;
+        } else if (newState.teams[existingIndex].passwordHash !== it.passwordHash) {
+          newState.teams[existingIndex].passwordHash = it.passwordHash;
           teamsUpdated = true;
         }
       });
@@ -134,10 +130,7 @@ export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
     };
 
     loadState();
-
-    return () => {
-      channel.close();
-    };
+    return () => channel.close();
   }, []);
 
   const updateStore = useCallback(<K extends keyof StoreState>(key: K, data: StoreState[K], broadcast = true) => {
@@ -145,7 +138,7 @@ export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
     localStorage.setItem(STORAGE_KEYS[key], JSON.stringify(data));
     
     if (broadcast) {
-      const channel = new BroadcastChannel('intra_syntax_sync');
+      const channel = new BroadcastChannel('intra_syntax_sync_v5');
       channel.postMessage({ key, data });
       channel.close();
     }

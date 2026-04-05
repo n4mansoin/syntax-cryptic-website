@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -16,44 +17,47 @@ import { localApi } from '@/services/local-api';
 export default function LoginPage() {
   const [teamName, setTeamName] = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const router = useRouter();
   const { loginTeam, loginAdmin, auth, loading: authLoading } = useAuth();
   const { state, isReady } = useStore();
   const { toast } = useToast();
 
   useEffect(() => {
-    if (!authLoading && auth.teamId) {
-      router.push('/hunt');
-    }
-    if (!authLoading && auth.adminId) {
-      router.push('/admin/dashboard');
+    if (!authLoading) {
+      if (auth.adminId) router.push('/admin/dashboard');
+      else if (auth.teamId) router.push('/hunt');
     }
   }, [auth, authLoading, router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isReady) return;
-    setLoading(true);
+    if (!isReady || submitting) return;
+    
+    setSubmitting(true);
+    try {
+      const team = await localApi.loginTeam(teamName, password, state);
 
-    const team = await localApi.loginTeam(teamName, password, state);
-
-    if (team) {
-      if (team.id === 'admin-root') {
-        loginAdmin('admin-root');
-        toast({ title: "Admin Access Granted", description: "Relaying to control center." });
+      if (team) {
+        if (team.id === 'admin-root') {
+          loginAdmin('admin-root');
+          toast({ title: "Access Granted", description: "Terminal ID: ROOT_ADMIN" });
+        } else {
+          loginTeam(team.id, team.teamName);
+          toast({ title: "Signal Established", description: `Welcome back, ${team.teamName}.` });
+        }
       } else {
-        loginTeam(team.id, team.teamName);
-        toast({ title: "Decryption Successful", description: `Connection established.` });
+        toast({ 
+          variant: "destructive", 
+          title: "Authentication Failed", 
+          description: "Invalid credentials. Signal rejected." 
+        });
       }
-    } else {
-      toast({ 
-        variant: "destructive", 
-        title: "Authentication Failed", 
-        description: "Invalid credentials." 
-      });
+    } catch (err) {
+      toast({ variant: "destructive", title: "System Error", description: "Authentication node unreachable." });
+    } finally {
+      setSubmitting(false);
     }
-    setLoading(false);
   };
 
   if (!isReady || authLoading) {
@@ -110,8 +114,8 @@ export default function LoginPage() {
                   </div>
                 </div>
               </div>
-              <Button type="submit" disabled={loading} className="w-full h-12 font-bold bg-primary hover:bg-primary/90 text-white uppercase tracking-widest">
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "DECRYPT ACCESS"}
+              <Button type="submit" disabled={submitting} className="w-full h-12 font-bold bg-primary hover:bg-primary/90 text-white uppercase tracking-widest">
+                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "DECRYPT ACCESS"}
               </Button>
             </form>
           </CardContent>

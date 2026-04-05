@@ -11,14 +11,11 @@ interface StoreContext {
 }
 
 export const localApi = {
-  /**
-   * Securely authenticates a team using salting and hashing.
-   */
   async loginTeam(teamName: string, password: string, state: StoreState): Promise<Team | null> {
     const cleanName = teamName.trim().toLowerCase();
     const cleanPassword = password.trim();
     
-    // Admin Root Override
+    // Admin Root Credentials
     if (cleanName === 'admin' && cleanPassword === 'qawsedrftg') {
       return { 
         id: 'admin-root', 
@@ -30,11 +27,10 @@ export const localApi = {
       } as Team;
     }
 
-    // Hash input password with Secret Key: SHA256(SECRET_KEY + password)
     const inputHash = await sha256(SECRET_KEY + cleanPassword);
     
-    console.log(`DEBUG: Attempting login for ${cleanName}`);
-    console.log(`DEBUG: Input Hash: ${inputHash}`);
+    console.log(`[AUTH] Verifying: ${cleanName}`);
+    console.log(`[AUTH] Hash: ${inputHash}`);
 
     const team = state.teams.find(t => 
       t.teamName.toLowerCase() === cleanName && 
@@ -42,9 +38,9 @@ export const localApi = {
     );
     
     if (team) {
-      console.log("DEBUG: Authentication successful.");
+      console.log("[AUTH] Identity verified.");
     } else {
-      console.warn("DEBUG: Authentication failed. No match found.");
+      console.warn("[AUTH] Verification failed.");
     }
     
     return team || null;
@@ -53,14 +49,13 @@ export const localApi = {
   async submitAnswer(teamId: string, levelId: string, userInput: string, { state, updateStore }: StoreContext) {
     const teams = [...state.teams];
     const teamIndex = teams.findIndex(t => t.id === teamId);
-    if (teamIndex === -1) return { success: false, message: "Team not found." };
+    if (teamIndex === -1) return { success: false, message: "Team identity lost." };
 
     const team = { ...teams[teamIndex] };
     const now = new Date();
 
-    // Strict penalty check
     if (team.penaltyUntil && new Date(team.penaltyUntil) > now) {
-      return { success: false, message: "System lockout active. Decryption disabled." };
+      return { success: false, message: "System lockout active. Terminal suppressed." };
     }
 
     const attempts = [...state.attempts];
@@ -68,15 +63,14 @@ export const localApi = {
     const recentAttempts = attempts.filter(a => a.teamId === teamId && new Date(a.timestamp) > oneMinuteAgo);
 
     if (recentAttempts.length >= ATTEMPT_LIMIT_PER_MINUTE) {
-      this.flagTeam(teamId, "High-frequency decryption attempt (Rate Limit Breach)", { state, updateStore });
-      return { success: false, message: "Protocol Violation: Rate limit breach. Account flagged.", flagged: true };
+      this.flagTeam(teamId, "Protocol Violation: High-frequency decryption attempt", { state, updateStore });
+      return { success: false, message: "Rate limit breach. Account flagged.", flagged: true };
     }
 
     const level = state.levels.find(l => l.id === levelId);
-    if (!level) return { success: false, message: "Level signal lost." };
+    if (!level) return { success: false, message: "Signal synchronization failure." };
 
     const normalized = normalizeAnswer(userInput);
-    // answerHash = SHA256(salt + SECRET_KEY + correctAnswerLowercase)
     const inputHash = await sha256(level.salt + SECRET_KEY + normalized);
     const isCorrect = inputHash === level.answerHash;
 
@@ -98,7 +92,7 @@ export const localApi = {
       return { success: true, message: "Decryption successful. Node breached." };
     }
 
-    return { success: false, message: "Decryption failed. Signal incorrect." };
+    return { success: false, message: "Decryption failed. Signal rejected." };
   },
 
   flagTeam(teamId: string, reason: string, { state, updateStore }: StoreContext) {
@@ -117,7 +111,6 @@ export const localApi = {
     if (teamIndex !== -1) {
       const team = { ...teams[teamIndex] };
       team.flagCount += 1;
-      // 60 minute penalty on 3rd flag
       if (team.flagCount >= FLAGS_UNTIL_PENALTY) {
         team.penaltyUntil = new Date(now.getTime() + PENALTY_DURATION_MINUTES * 60000).toISOString();
         team.flagCount = 0; 

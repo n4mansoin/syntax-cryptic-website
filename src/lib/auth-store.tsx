@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
@@ -20,7 +21,7 @@ interface AuthContextType {
   logout: () => void;
 }
 
-const STORAGE_KEY = 'cryptic_user';
+const STORAGE_KEY = 'cryptic_user_session';
 
 const INITIAL_STATE: AuthState = {
   userType: null,
@@ -62,10 +63,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             });
           } else {
             localStorage.removeItem(STORAGE_KEY);
+            setAuth(INITIAL_STATE);
           }
         }
       } catch (e) {
         localStorage.removeItem(STORAGE_KEY);
+        setAuth(INITIAL_STATE);
       }
     }
     setLoading(false);
