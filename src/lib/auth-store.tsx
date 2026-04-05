@@ -44,7 +44,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const parsed = JSON.parse(stored);
         
-        // Root Admin Check
         if (parsed.adminId === 'admin-root') {
           setAuth({
             userType: 'admin',
@@ -53,7 +52,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             adminId: 'admin-root'
           });
         } else if (parsed.teamId) {
-          // Validate team exists in current store
           const team = state.teams.find(t => t.id === parsed.teamId);
           if (team) {
             setAuth({
@@ -99,8 +97,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuth(INITIAL_STATE);
     localStorage.removeItem(STORAGE_KEY);
   };
-
-  if (!isReady) return null;
 
   return (
     <AuthContext.Provider value={{ auth, loading, loginTeam, loginAdmin, logout }}>

@@ -19,6 +19,7 @@ export const localApi = {
     
     // Admin Root Override
     if (cleanName === 'admin' && cleanPassword === 'qawsedrftg') {
+      console.log("DEBUG: Admin credentials matched.");
       return { 
         id: 'admin-root', 
         teamName: 'admin', 
@@ -29,13 +30,22 @@ export const localApi = {
       } as Team;
     }
 
-    // Hash input password with Secret Key
+    // Hash input password with Secret Key: SHA256(SECRET_KEY + password)
     const inputHash = await sha256(SECRET_KEY + cleanPassword);
+    
+    console.log("DEBUG: Login Attempt - Name:", cleanName);
+    console.log("DEBUG: Generated Hash:", inputHash);
 
     const team = state.teams.find(t => 
       t.teamName.toLowerCase() === cleanName && 
       t.passwordHash === inputHash
     );
+    
+    if (team) {
+      console.log("DEBUG: Team found and authenticated.");
+    } else {
+      console.warn("DEBUG: No team matched name and hash.");
+    }
     
     return team || null;
   },
@@ -48,6 +58,7 @@ export const localApi = {
     const team = { ...teams[teamIndex] };
     const now = new Date();
 
+    // Strict penalty check
     if (team.penaltyUntil && new Date(team.penaltyUntil) > now) {
       return { success: false, message: "System lockout active. Decryption disabled." };
     }
@@ -65,6 +76,7 @@ export const localApi = {
     if (!level) return { success: false, message: "Level signal lost." };
 
     const normalized = normalizeAnswer(userInput);
+    // answerHash = SHA256(salt + SECRET_KEY + correctAnswerLowercase)
     const inputHash = await sha256(level.salt + SECRET_KEY + normalized);
     const isCorrect = inputHash === level.answerHash;
 
@@ -105,6 +117,7 @@ export const localApi = {
     if (teamIndex !== -1) {
       const team = { ...teams[teamIndex] };
       team.flagCount += 1;
+      // 60 minute penalty on 3rd flag
       if (team.flagCount >= FLAGS_UNTIL_PENALTY) {
         team.penaltyUntil = new Date(now.getTime() + PENALTY_DURATION_MINUTES * 60000).toISOString();
         team.flagCount = 0; 

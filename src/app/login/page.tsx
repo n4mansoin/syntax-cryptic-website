@@ -19,7 +19,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const { loginTeam, loginAdmin, auth, loading: authLoading } = useAuth();
-  const { state } = useStore();
+  const { state, isReady } = useStore();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -33,6 +33,7 @@ export default function LoginPage() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isReady) return;
     setLoading(true);
 
     const team = await localApi.loginTeam(teamName, password, state);
@@ -55,7 +56,13 @@ export default function LoginPage() {
     setLoading(false);
   };
 
-  if (authLoading) return null;
+  if (!isReady || authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
