@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -39,8 +38,8 @@ export default function Home() {
     <div className="fixed inset-0 w-full h-full overflow-hidden bg-black flex flex-col items-center justify-center">
       <Navbar />
       
-      {/* Spiral Animation Background */}
-      <div className="absolute inset-0">
+      {/* Spiral Animation Background - Shifted down slightly */}
+      <div className="absolute inset-0 translate-y-12">
         <SpiralAnimation />
       </div>
       
@@ -52,17 +51,17 @@ export default function Home() {
         {huntStartTime && <Countdown targetDate={huntStartTime} />}
       </div>
 
-      {/* Elegant START Button in the visual center */}
+      {/* Elegant START Button - Shifted down and font size decreased */}
       <div 
         className={`
-          z-20 transition-all duration-1500 ease-out
+          z-20 transition-all duration-1500 ease-out mt-12
           ${startVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}
         `}
       >
         <button 
           onClick={handleEnter}
           className="
-            text-white text-3xl tracking-[0.6em] uppercase font-extralight
+            text-white text-2xl tracking-[0.6em] uppercase font-extralight
             transition-all duration-700
             hover:tracking-[0.8em] animate-pulse
             bg-transparent border-none outline-none
