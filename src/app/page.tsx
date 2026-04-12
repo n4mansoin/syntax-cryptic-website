@@ -1,70 +1,96 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
 import { Countdown } from '@/components/Countdown';
 import { Navbar } from '@/components/Navbar';
-import { Button } from '@/components/ui/button';
-import { Terminal, ChevronRight } from 'lucide-react';
-import Link from 'next/link';
+import { SpiralAnimation } from "@/components/ui/spiral-animation";
 import { useAuth } from '@/lib/auth-store';
+import { useRouter } from 'next/navigation';
 
 export default function Home() {
   const { auth } = useAuth();
+  const router = useRouter();
   const [huntStartTime, setHuntStartTime] = useState<Date | null>(null);
+  const [startVisible, setStartVisible] = useState(false);
 
   useEffect(() => {
     // Target: Tomorrow same time for demo purposes
     const target = new Date();
     target.setDate(target.getDate() + 1);
     setHuntStartTime(target);
+
+    const timer = setTimeout(() => {
+      setStartVisible(true);
+    }, 1000);
+    
+    return () => clearTimeout(timer);
   }, []);
 
+  const handleEnter = () => {
+    if (auth.userType === 'team') {
+      router.push('/hunt');
+    } else {
+      router.push('/login');
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 relative overflow-hidden">
+    <div className="fixed inset-0 w-full h-full overflow-hidden bg-black flex flex-col items-center justify-center">
       <Navbar />
       
-      {/* Background decoration */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-primary/5 rounded-full blur-[120px] pointer-events-none" />
+      {/* Spiral Animation Background */}
+      <div className="absolute inset-0">
+        <SpiralAnimation />
+      </div>
       
-      <div className="z-10 text-center max-w-2xl flex flex-col items-center space-y-12">
-        <div className="space-y-4">
-          <div className="flex items-center justify-center gap-3 mb-2 animate-fade-in">
-            <div className="h-[1px] w-8 bg-primary/40" />
-            <span className="text-primary font-medium tracking-[0.3em] text-xs uppercase">Cryptic Transmission Incoming</span>
-            <div className="h-[1px] w-8 bg-primary/40" />
-          </div>
-          <h1 className="text-6xl md:text-8xl font-headline font-black tracking-tighter text-white animate-scale-up">
+      {/* Content Overlay */}
+      <div className="z-10 text-center flex flex-col items-center space-y-12 max-w-2xl px-6">
+        
+        {/* Timer at the top */}
+        <div className={`
+          space-y-4 transition-all duration-1000 
+          ${startVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'}
+        `}>
+          <p className="text-primary font-medium tracking-[0.3em] text-xs uppercase mb-4">Transmission Start Countdown</p>
+          {huntStartTime && <Countdown targetDate={huntStartTime} />}
+        </div>
+
+        <div className="space-y-2">
+          <h1 className="text-6xl md:text-8xl font-headline font-black tracking-tighter text-white">
             INTRA<br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-primary/60">SYNTAX</span>
           </h1>
         </div>
 
-        <div className="space-y-6">
-          <p className="text-muted-foreground uppercase tracking-widest text-sm font-medium">Hunt starts in</p>
-          {huntStartTime && <Countdown targetDate={huntStartTime} />}
-          {!huntStartTime && <div className="h-20" />}
+        {/* Elegant Enter Button */}
+        <div 
+          className={`
+            transition-all duration-1500 ease-out pt-8
+            ${startVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}
+          `}
+        >
+          <button 
+            onClick={handleEnter}
+            className="
+              text-white text-2xl tracking-[0.4em] uppercase font-extralight
+              transition-all duration-700
+              hover:tracking-[0.6em] animate-pulse
+            "
+          >
+            Enter
+          </button>
         </div>
 
-        <div className="flex flex-col items-center gap-4 w-full max-w-sm">
-          {auth.userType === 'team' ? (
-            <Link href="/hunt" className="w-full">
-              <Button size="lg" className="w-full group h-14 text-lg font-bold rounded-xl bg-primary hover:bg-primary/90 transition-all duration-300 shadow-[0_0_20px_rgba(124,92,255,0.3)]">
-                ENTER THE VOID
-                <ChevronRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
-              </Button>
-            </Link>
-          ) : (
-            <Link href="/login" className="w-full">
-              <Button size="lg" variant="outline" className="h-14 w-full rounded-xl border-white/10 text-lg font-bold hover:bg-white/5 transition-all">
-                TEAM LOGIN
-              </Button>
-            </Link>
-          )}
-          <p className="text-white/20 text-[10px] uppercase tracking-[0.4em] font-mono">Status: Awaiting decryption key</p>
-        </div>
+        <p className={`
+          text-white/20 text-[10px] uppercase tracking-[0.4em] font-mono mt-8 transition-opacity duration-1000
+          ${startVisible ? 'opacity-100' : 'opacity-0'}
+        `}>
+          Status: Awaiting terminal link
+        </p>
       </div>
 
-      <footer className="absolute bottom-8 left-0 right-0 text-center">
-        <p className="text-white/20 text-xs font-mono">v1.0.4-stable // intra.syntax.io</p>
+      <footer className="absolute bottom-8 left-0 right-0 text-center pointer-events-none opacity-30">
+        <p className="text-white/20 text-xs font-mono">v1.0.4-stable // high-frequency signal node</p>
       </footer>
     </div>
   );
