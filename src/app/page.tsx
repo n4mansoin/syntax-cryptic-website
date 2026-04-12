@@ -56,12 +56,6 @@ export default function Home() {
           {huntStartTime && <Countdown targetDate={huntStartTime} />}
         </div>
 
-        <div className="space-y-2">
-          <h1 className="text-6xl md:text-8xl font-headline font-black tracking-tighter text-white">
-            INTRA<br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-primary/60">SYNTAX</span>
-          </h1>
-        </div>
-
         {/* Elegant Enter Button */}
         <div 
           className={`
