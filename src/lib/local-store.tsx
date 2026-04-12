@@ -79,10 +79,56 @@ export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
   });
   const [isReady, setIsReady] = useState(false);
 
+  const loadState = useCallback(() => {
+    const rawTeams = localStorage.getItem(STORAGE_KEYS.teams);
+    const rawLevels = localStorage.getItem(STORAGE_KEYS.levels);
+    const rawHints = localStorage.getItem(STORAGE_KEYS.hints);
+    const rawAttempts = localStorage.getItem(STORAGE_KEYS.attempts);
+    const rawFlags = localStorage.getItem(STORAGE_KEYS.flags);
+
+    const newState: StoreState = {
+      teams: JSON.parse(rawTeams || '[]'),
+      levels: JSON.parse(rawLevels || '[]'),
+      hints: JSON.parse(rawHints || '[]'),
+      attempts: JSON.parse(rawAttempts || '[]'),
+      flags: JSON.parse(rawFlags || '[]'),
+    };
+
+    // Force-Sync from JSON definitions
+    newState.levels = initialLevels as Level[];
+    const initialTeamsTyped = initialTeams as Team[];
+    
+    let storeNeedsUpdate = false;
+    initialTeamsTyped.forEach(it => {
+      const existingIndex = newState.teams.findIndex(t => t.id === it.id);
+      if (existingIndex === -1) {
+        newState.teams.push(it);
+        storeNeedsUpdate = true;
+      } else {
+        if (newState.teams[existingIndex].password !== it.password) {
+          newState.teams[existingIndex].password = it.password;
+          storeNeedsUpdate = true;
+        }
+        if (newState.teams[existingIndex].teamName !== it.teamName) {
+          newState.teams[existingIndex].teamName = it.teamName;
+          storeNeedsUpdate = true;
+        }
+      }
+    });
+
+    localStorage.setItem(STORAGE_KEYS.levels, JSON.stringify(newState.levels));
+    if (storeNeedsUpdate) {
+      localStorage.setItem(STORAGE_KEYS.teams, JSON.stringify(newState.teams));
+    }
+
+    setState(newState);
+    setIsReady(true);
+  }, []);
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const channel = new BroadcastChannel('intra_syntax_sync_v5');
+    const channel = new BroadcastChannel('intra_syntax_sync_v6');
     
     const handleMessage = (event: MessageEvent) => {
       const { key, data } = event.data;
@@ -91,65 +137,37 @@ export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
       }
     };
 
-    channel.onmessage = handleMessage;
-
-    const loadState = () => {
-      const rawTeams = localStorage.getItem(STORAGE_KEYS.teams);
-      const rawLevels = localStorage.getItem(STORAGE_KEYS.levels);
-      const rawHints = localStorage.getItem(STORAGE_KEYS.hints);
-      const rawAttempts = localStorage.getItem(STORAGE_KEYS.attempts);
-      const rawFlags = localStorage.getItem(STORAGE_KEYS.flags);
-
-      const teams = JSON.parse(rawTeams || '[]') as Team[];
-      const levels = JSON.parse(rawLevels || '[]') as Level[];
-      const hints = JSON.parse(rawHints || '[]') as Hint[];
-      const attempts = JSON.parse(rawAttempts || '[]') as Attempt[];
-      const flags = JSON.parse(rawFlags || '[]') as Flag[];
-
-      const newState: StoreState = { teams, levels, hints, attempts, flags };
-
-      // Force-Sync Credentials from JSON
-      newState.levels = initialLevels as Level[];
-      const initialTeamsTyped = initialTeams as Team[];
-      
-      let storeNeedsUpdate = false;
-      initialTeamsTyped.forEach(it => {
-        const existingIndex = newState.teams.findIndex(t => t.id === it.id);
-        if (existingIndex === -1) {
-          newState.teams.push(it);
-          storeNeedsUpdate = true;
-        } else {
-          // Force plain-text password sync
-          if (newState.teams[existingIndex].password !== it.password) {
-            newState.teams[existingIndex].password = it.password;
-            storeNeedsUpdate = true;
-          }
-          if (newState.teams[existingIndex].teamName !== it.teamName) {
-            newState.teams[existingIndex].teamName = it.teamName;
-            storeNeedsUpdate = true;
-          }
+    const handleStorage = (event: StorageEvent) => {
+      const key = (Object.keys(STORAGE_KEYS) as Array<keyof StoreState>).find(
+        k => STORAGE_KEYS[k] === event.key
+      );
+      if (key && event.newValue) {
+        try {
+          const parsed = JSON.parse(event.newValue);
+          setState(prev => ({ ...prev, [key]: parsed }));
+        } catch (e) {
+          // Ignore invalid JSON
         }
-      });
-
-      localStorage.setItem(STORAGE_KEYS.levels, JSON.stringify(newState.levels));
-      if (storeNeedsUpdate) {
-        localStorage.setItem(STORAGE_KEYS.teams, JSON.stringify(newState.teams));
       }
-
-      setState(newState);
-      setIsReady(true);
     };
 
+    channel.onmessage = handleMessage;
+    window.addEventListener('storage', handleStorage);
+
     loadState();
-    return () => channel.close();
-  }, []);
+
+    return () => {
+      channel.close();
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, [loadState]);
 
   const updateStore = useCallback(<K extends keyof StoreState>(key: K, data: StoreState[K], broadcast = true) => {
     setState(prev => ({ ...prev, [key]: data }));
     localStorage.setItem(STORAGE_KEYS[key], JSON.stringify(data));
     
     if (broadcast) {
-      const channel = new BroadcastChannel('intra_syntax_sync_v5');
+      const channel = new BroadcastChannel('intra_syntax_sync_v6');
       channel.postMessage({ key, data });
       channel.close();
     }

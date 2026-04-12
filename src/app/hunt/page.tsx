@@ -1,13 +1,13 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
-import { Terminal, Send, Timer, HelpCircle, Lightbulb, CheckCircle2, Loader2, AlertCircle, ShieldAlert } from 'lucide-react';
+import { Terminal, Send, Timer, HelpCircle, Lightbulb, CheckCircle2, Loader2, AlertCircle, ShieldAlert, Wifi } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth-store';
 import { useStore } from '@/lib/local-store';
@@ -35,11 +35,14 @@ export default function HuntPage() {
     }
   }, [auth, authLoading, router, isMounted]);
 
-  const teamData = state.teams.find(t => t.id === auth.teamId);
+  const teamData = useMemo(() => state.teams.find(t => t.id === auth.teamId), [state.teams, auth.teamId]);
   const currentLevelNumber = teamData?.currentLevel || 1;
-  const currentLevel = state.levels.find(l => l.order === currentLevelNumber);
+  const currentLevel = useMemo(() => state.levels.find(l => l.order === currentLevelNumber), [state.levels, currentLevelNumber]);
   
-  const releasedHints = state.hints.filter(h => h.levelId === currentLevel?.id && h.isReleased);
+  const releasedHints = useMemo(() => 
+    state.hints.filter(h => h.levelId === currentLevel?.id && h.isReleased),
+    [state.hints, currentLevel?.id]
+  );
 
   useEffect(() => {
     if (!teamData?.penaltyUntil) {
@@ -79,7 +82,6 @@ export default function HuntPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Strict client-side check
     if (!answer.trim() || !auth.teamId || !currentLevel || penaltyTimeLeft) {
       if (penaltyTimeLeft) {
         toast({ variant: "destructive", title: "Lockout Active", description: "Your terminal signal is suppressed." });
@@ -130,8 +132,10 @@ export default function HuntPage() {
               <h2 className="text-2xl font-headline font-bold text-white uppercase tracking-tighter">
                 {currentLevelNumber > 5 ? "Victory" : `Level 0${currentLevelNumber}`}
               </h2>
-              <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-mono uppercase tracking-[0.2em]">
-                <Timer className="w-3 h-3" /> Time: {formatTime(levelTimer)}
+              <div className="flex items-center gap-3 text-[10px] text-muted-foreground font-mono uppercase tracking-[0.2em]">
+                <span className="flex items-center gap-1"><Timer className="w-3 h-3" /> Time: {formatTime(levelTimer)}</span>
+                <span className="w-[1px] h-3 bg-white/10" />
+                <span className="flex items-center gap-1 text-primary/60"><Wifi className="w-3 h-3 animate-pulse" /> Live Sync Active</span>
               </div>
             </div>
           </div>
@@ -165,6 +169,7 @@ export default function HuntPage() {
               <CheckCircle2 className="w-20 h-20 text-primary" />
               <h3 className="text-4xl font-headline font-bold uppercase tracking-tighter">Signal Decrypted</h3>
               <p className="text-muted-foreground font-mono text-sm text-center">Mission Complete. You have breached the final security layer.</p>
+              <Button onClick={() => router.push('/leaderboard')} className="mt-8">View Global Standings</Button>
             </div>
           ) : !currentLevel ? (
             <div className="flex flex-col items-center gap-6 py-12 text-center max-w-md">
@@ -199,14 +204,14 @@ export default function HuntPage() {
                 </Button>
               </form>
 
-              <div className="w-full max-w-lg space-y-4">
+              <div className="w-full max-w-lg">
                 {releasedHints.length > 0 && (
-                  <div className="p-8 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl animate-scale-up shadow-2xl">
-                    <div className="flex items-center gap-3 mb-6">
+                  <div className="p-8 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl animate-scale-up shadow-2xl space-y-6">
+                    <div className="flex items-center gap-3">
                       <div className="bg-primary/20 p-1.5 rounded-lg">
                         <Lightbulb className="h-4 w-4 text-primary" />
                       </div>
-                      <span className="text-xs text-white uppercase font-bold tracking-[0.2em]">Hints:</span>
+                      <span className="text-xs text-white uppercase font-bold tracking-[0.2em]">Live Hints Received:</span>
                     </div>
                     <div className="space-y-4">
                       {releasedHints.map((hint) => (

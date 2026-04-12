@@ -3,7 +3,7 @@
 
 import { normalizeAnswer } from '@/utils/hash';
 import { ATTEMPT_LIMIT_PER_MINUTE, PENALTY_DURATION_MINUTES, FLAGS_UNTIL_PENALTY } from '@/utils/constants';
-import { StoreState, Team, Attempt } from '@/lib/local-store';
+import { StoreState, Team, Attempt, Hint } from '@/lib/local-store';
 
 interface StoreContext {
   state: StoreState;
@@ -15,7 +15,6 @@ export const localApi = {
     const cleanName = teamName.trim().toLowerCase();
     const cleanPassword = password.trim();
     
-    // Admin Root Credentials
     if (cleanName === 'admin' && cleanPassword === 'qawsedrftg') {
       return { 
         id: 'admin-root', 
@@ -27,7 +26,6 @@ export const localApi = {
       } as Team;
     }
 
-    // Direct comparison (Plain Text)
     const team = state.teams.find(t => {
       const storedName = (t.teamName || '').trim().toLowerCase();
       const storedPassword = (t.password || '').trim();
@@ -113,15 +111,15 @@ export const localApi = {
   },
 
   releaseHint(levelId: string, hintText: string, { state, updateStore }: StoreContext) {
-    const hints = [...state.hints];
-    hints.push({
+    const newHint: Hint = {
       id: Math.random().toString(36).substr(2, 9),
       levelId,
       hintText,
       isReleased: true,
       releasedAt: new Date().toISOString()
-    });
-    updateStore('hints', hints);
+    };
+    const newHints = [...state.hints, newHint];
+    updateStore('hints', newHints);
   },
 
   applyPenalty(teamId: string, durationMinutes: number, { state, updateStore }: StoreContext) {
