@@ -72,13 +72,6 @@ export default function Home() {
             Enter
           </button>
         </div>
-
-        <p className={`
-          text-white/20 text-[10px] uppercase tracking-[0.4em] font-mono mt-8 transition-opacity duration-1000
-          ${startVisible ? 'opacity-100' : 'opacity-0'}
-        `}>
-          Status: Awaiting terminal link
-        </p>
       </div>
 
       <footer className="absolute bottom-8 left-0 right-0 text-center pointer-events-none opacity-30">
