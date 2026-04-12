@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -14,6 +15,7 @@ import { useStore } from '@/lib/local-store';
 import { Input } from '@/components/ui/input';
 import { localApi } from '@/services/local-api';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useToast } from '@/hooks/use-toast';
 import {
   Dialog,
   DialogContent,
@@ -103,6 +105,7 @@ function TeamPenaltyDialog({ team, onApply }: TeamPenaltyDialogProps) {
 export default function AdminDashboard() {
   const { auth, loading: authLoading } = useAuth();
   const { state, isReady, updateStore } = useStore();
+  const { toast } = useToast();
   const router = useRouter();
   const [isMounted, setIsMounted] = useState(false);
   const [hintText, setHintText] = useState('');
@@ -121,25 +124,42 @@ export default function AdminDashboard() {
   const handleAddHint = () => {
     if (!hintText || !selectedLevelId) return;
     localApi.releaseHint(selectedLevelId, hintText, { state, updateStore });
+    
+    toast({
+      title: "Signal Injected",
+      description: "Hint has been broadcasted to all active terminals.",
+    });
+
     setHintText('');
     setSelectedLevelId('');
   };
 
   const handleFlagTeam = (teamId: string) => {
     localApi.flagTeam(teamId, "Manual Admin Flag", { state, updateStore });
+    toast({
+      title: "Protocol Violation Logged",
+      description: "Team has been flagged for manual review.",
+    });
   };
 
   const handleApplyPenalty = (teamId: string, mins: number) => {
     if (isNaN(mins)) return;
     localApi.applyPenalty(teamId, mins, { state, updateStore });
+    toast({
+      title: "Terminal Lockout Active",
+      description: `Target terminal has been suppressed for ${mins} minutes.`,
+    });
   };
 
   const handleRemovePenalty = (teamId: string) => {
     localApi.removePenalty(teamId, { state, updateStore });
+    toast({
+      title: "Lockout Lifted",
+      description: "Terminal communication restored.",
+    });
   };
 
   const getRequestsForLevel = (levelId: string) => {
-    // Simulated as total attempts on the level
     return state.attempts.filter(a => a.levelId === levelId).length;
   };
 

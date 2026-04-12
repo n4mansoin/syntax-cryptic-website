@@ -97,7 +97,7 @@ export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
       flags: JSON.parse(rawFlags || '[]'),
     };
 
-    // Force-Sync from JSON definitions for immutable content
+    // Force-Sync from JSON definitions
     newState.levels = initialLevels as Level[];
     const initialTeamsTyped = initialTeams as Team[];
     
@@ -108,7 +108,6 @@ export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
         newState.teams.push(it);
         storeNeedsUpdate = true;
       } else {
-        // Sync credentials if they changed in the config
         if (newState.teams[existingIndex].password !== it.password) {
           newState.teams[existingIndex].password = it.password;
           storeNeedsUpdate = true;
@@ -132,7 +131,6 @@ export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    // Maintain a persistent channel
     if (!syncChannel.current) {
       syncChannel.current = new BroadcastChannel(SYNC_CHANNEL_NAME);
     }
@@ -152,9 +150,7 @@ export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
         try {
           const parsed = JSON.parse(event.newValue);
           setState(prev => ({ ...prev, [key]: parsed }));
-        } catch (e) {
-          // Ignore
-        }
+        } catch (e) { }
       }
     };
 
@@ -164,22 +160,13 @@ export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
     loadState();
 
     return () => {
-      if (syncChannel.current) {
-        syncChannel.current.close();
-        syncChannel.current = null;
-      }
       window.removeEventListener('storage', handleStorage);
     };
   }, [loadState]);
 
   const updateStore = useCallback(<K extends keyof StoreState>(key: K, data: StoreState[K], broadcast = true) => {
-    // Immediate local update
     setState(prev => ({ ...prev, [key]: data }));
-    
-    // Persistent storage update
     localStorage.setItem(STORAGE_KEYS[key], JSON.stringify(data));
-    
-    // Global broadcast
     if (broadcast && syncChannel.current) {
       syncChannel.current.postMessage({ key, data });
     }
