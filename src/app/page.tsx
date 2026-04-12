@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -52,7 +51,6 @@ export default function Home() {
           space-y-4 transition-all duration-1000 
           ${startVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'}
         `}>
-          <p className="text-primary font-medium tracking-[0.3em] text-xs uppercase mb-4">Transmission Start Countdown</p>
           {huntStartTime && <Countdown targetDate={huntStartTime} />}
         </div>
 
