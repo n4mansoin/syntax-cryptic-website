@@ -201,17 +201,21 @@ export default function HuntPage() {
 
               <div className="w-full max-w-lg space-y-4">
                 {releasedHints.length > 0 && (
-                  <div className="p-6 bg-primary/5 border border-primary/20 rounded-xl animate-scale-up text-center space-y-4">
-                    <div className="flex items-center justify-center gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-primary" />
-                      <span className="text-[10px] text-primary uppercase font-bold tracking-[0.3em]">Status: Signal Decrypted</span>
+                  <div className="p-8 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl animate-scale-up shadow-2xl">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="bg-primary/20 p-1.5 rounded-lg">
+                        <Lightbulb className="h-4 w-4 text-primary" />
+                      </div>
+                      <span className="text-xs text-white uppercase font-bold tracking-[0.2em]">Hints:</span>
                     </div>
-                    <div className="space-y-2 text-left">
-                      <p className="text-[10px] uppercase font-bold text-primary/70">Released Hints:</p>
+                    <div className="space-y-4">
                       {releasedHints.map((hint) => (
-                        <p key={hint.id} className="text-sm font-body text-white/90 italic p-3 bg-white/[0.02] border border-white/5 rounded-lg">
-                          "{hint.hintText}"
-                        </p>
+                        <div key={hint.id} className="relative group">
+                          <div className="absolute -left-3 top-0 bottom-0 w-[2px] bg-primary/30 group-hover:bg-primary transition-colors" />
+                          <p className="text-sm font-body text-white/80 leading-relaxed pl-3 italic">
+                            "{hint.hintText}"
+                          </p>
+                        </div>
                       ))}
                     </div>
                   </div>
