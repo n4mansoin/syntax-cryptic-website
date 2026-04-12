@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -15,9 +14,9 @@ export default function Home() {
   const [startVisible, setStartVisible] = useState(false);
 
   useEffect(() => {
-    // Target: Tomorrow same time for demo purposes
-    const target = new Date();
-    target.setDate(target.getDate() + 1);
+    // Target: 14th April 2026, 6:00 PM IST (UTC+5:30)
+    // 6:00 PM IST is 12:30 PM UTC
+    const target = new Date('2026-04-14T12:30:00Z');
     setHuntStartTime(target);
 
     const timer = setTimeout(() => {
@@ -39,7 +38,7 @@ export default function Home() {
     <div className="fixed inset-0 w-full h-full overflow-hidden bg-black flex flex-col items-center justify-center">
       <Navbar />
       
-      {/* Spiral Animation Background - Shifted down by 48px (translate-y-12) */}
+      {/* Spiral Animation Background - Shifted down by 48px */}
       <div className="absolute inset-0 translate-y-12">
         <SpiralAnimation />
       </div>
@@ -53,7 +52,6 @@ export default function Home() {
       </div>
 
       {/* START Button - Positioned at the visual center of the spiral */}
-      {/* Offset calculation: 48px (spiral shift) + 28px (internal spiral offset) = 76px */}
       <div 
         className={`
           absolute inset-0 z-20 flex items-center justify-center pointer-events-none
