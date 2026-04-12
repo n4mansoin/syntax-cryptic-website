@@ -24,8 +24,8 @@ class Vector3D {
 class AnimationController {
     private timeline: gsap.core.Timeline
     private time = 0
-    private canvas: HTMLCanvasElement
-    private ctx: CanvasRenderingContext2D
+    public canvas: HTMLCanvasElement
+    public ctx: CanvasRenderingContext2D
     private dpr: number
     private size: number
     private stars: Star[] = []
@@ -179,6 +179,7 @@ class AnimationController {
         if (this.time > this.changeEventTime) {
             const dy = this.cameraZ * this.startDotYOffset / this.viewZoom
             const position = new Vector3D(0, dy, this.cameraTravelDistance)
+            this.ctx.fillStyle = 'white'
             this.showProjectedDot(position, 2.5)
         }
     }
@@ -205,7 +206,6 @@ class AnimationController {
         this.drawTrail(t1)
         
         // 绘制星星
-        ctx.fillStyle = 'white'
         for (const star of this.stars) {
             star.render(t1, this)
         }
@@ -222,6 +222,7 @@ class AnimationController {
             const f = this.map(i, 0, this.trailLength, 1.1, 0.1)
             const sw = (1.3 * (1 - t1) + 3.0 * Math.sin(Math.PI * t1)) * f
             
+            // 轨迹可以使用混合颜色或保持白色
             this.ctx.fillStyle = 'white'
             this.ctx.lineWidth = sw
             
@@ -272,6 +273,7 @@ class Star {
     private rotationDirection: number // 旋转方向
     private expansionRate: number // 扩散速率
     private finalScale: number // 最终尺寸比例
+    private color: string // 星星颜色
     
     constructor(cameraZ: number, cameraTravelDistance: number) {
         this.angle = Math.random() * Math.PI * 2
@@ -279,6 +281,9 @@ class Star {
         this.rotationDirection = Math.random() > 0.5 ? 1 : -1
         this.expansionRate = 1.2 + Math.random() * 0.8 // 增加扩散率从0.8-1.2到1.2-2.0
         this.finalScale = 0.7 + Math.random() * 0.6 // 0.7-1.3之间的最终尺寸
+        
+        // Assign color: 60% accent color, 40% white
+        this.color = Math.random() > 0.4 ? '#3690CF' : 'white'
         
         this.dx = this.distance * Math.cos(this.angle)
         this.dy = this.distance * Math.sin(this.angle)
@@ -384,6 +389,8 @@ class Star {
             
             const dotSize = 8.5 * this.strokeWeightFactor * sizeMultiplier;
             
+            // Set individual star color before drawing
+            controller.ctx.fillStyle = this.color;
             controller.showProjectedDot(position, dotSize);
         }
     }
