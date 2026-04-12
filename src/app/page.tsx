@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -43,35 +44,32 @@ export default function Home() {
         <SpiralAnimation />
       </div>
       
-      {/* Content Overlay */}
-      <div className="z-10 text-center flex flex-col items-center space-y-12 max-w-2xl px-6">
-        
-        {/* Timer at the top */}
-        <div className={`
-          space-y-4 transition-all duration-1000 
-          ${startVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'}
-        `}>
-          {huntStartTime && <Countdown targetDate={huntStartTime} />}
-        </div>
+      {/* Timer at the top */}
+      <div className={`
+        absolute top-32 z-10 transition-all duration-1000 px-6
+        ${startVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'}
+      `}>
+        {huntStartTime && <Countdown targetDate={huntStartTime} />}
+      </div>
 
-        {/* Elegant Enter Button */}
-        <div 
-          className={`
-            transition-all duration-1500 ease-out pt-8
-            ${startVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}
-          `}
+      {/* Elegant START Button in the visual center */}
+      <div 
+        className={`
+          z-20 transition-all duration-1500 ease-out
+          ${startVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}
+        `}
+      >
+        <button 
+          onClick={handleEnter}
+          className="
+            text-white text-3xl tracking-[0.6em] uppercase font-extralight
+            transition-all duration-700
+            hover:tracking-[0.8em] animate-pulse
+            bg-transparent border-none outline-none
+          "
         >
-          <button 
-            onClick={handleEnter}
-            className="
-              text-white text-2xl tracking-[0.4em] uppercase font-extralight
-              transition-all duration-700
-              hover:tracking-[0.6em] animate-pulse
-            "
-          >
-            Enter
-          </button>
-        </div>
+          START
+        </button>
       </div>
 
       <footer className="absolute bottom-8 left-0 right-0 text-center pointer-events-none opacity-30">
