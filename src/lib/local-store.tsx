@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
 import initialLevels from '@/data/levels.json';
 import initialTeams from '@/data/teams.json';
 
@@ -69,6 +69,8 @@ const STORAGE_KEYS: Record<keyof StoreState, string> = {
   flags: 'is_flags_v5',
 };
 
+const SYNC_CHANNEL_NAME = 'intra_syntax_global_sync_v7';
+
 export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
   const [state, setState] = useState<StoreState>({
     teams: [],
@@ -78,6 +80,7 @@ export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
     flags: [],
   });
   const [isReady, setIsReady] = useState(false);
+  const syncChannel = useRef<BroadcastChannel | null>(null);
 
   const loadState = useCallback(() => {
     const rawTeams = localStorage.getItem(STORAGE_KEYS.teams);
@@ -94,7 +97,7 @@ export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
       flags: JSON.parse(rawFlags || '[]'),
     };
 
-    // Force-Sync from JSON definitions
+    // Force-Sync from JSON definitions for immutable content
     newState.levels = initialLevels as Level[];
     const initialTeamsTyped = initialTeams as Team[];
     
@@ -105,6 +108,7 @@ export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
         newState.teams.push(it);
         storeNeedsUpdate = true;
       } else {
+        // Sync credentials if they changed in the config
         if (newState.teams[existingIndex].password !== it.password) {
           newState.teams[existingIndex].password = it.password;
           storeNeedsUpdate = true;
@@ -128,8 +132,11 @@ export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const channel = new BroadcastChannel('intra_syntax_sync_v6');
-    
+    // Maintain a persistent channel
+    if (!syncChannel.current) {
+      syncChannel.current = new BroadcastChannel(SYNC_CHANNEL_NAME);
+    }
+
     const handleMessage = (event: MessageEvent) => {
       const { key, data } = event.data;
       if (key && data && STORAGE_KEYS[key as keyof StoreState]) {
@@ -146,30 +153,35 @@ export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
           const parsed = JSON.parse(event.newValue);
           setState(prev => ({ ...prev, [key]: parsed }));
         } catch (e) {
-          // Ignore invalid JSON
+          // Ignore
         }
       }
     };
 
-    channel.onmessage = handleMessage;
+    syncChannel.current.onmessage = handleMessage;
     window.addEventListener('storage', handleStorage);
 
     loadState();
 
     return () => {
-      channel.close();
+      if (syncChannel.current) {
+        syncChannel.current.close();
+        syncChannel.current = null;
+      }
       window.removeEventListener('storage', handleStorage);
     };
   }, [loadState]);
 
   const updateStore = useCallback(<K extends keyof StoreState>(key: K, data: StoreState[K], broadcast = true) => {
+    // Immediate local update
     setState(prev => ({ ...prev, [key]: data }));
+    
+    // Persistent storage update
     localStorage.setItem(STORAGE_KEYS[key], JSON.stringify(data));
     
-    if (broadcast) {
-      const channel = new BroadcastChannel('intra_syntax_sync_v6');
-      channel.postMessage({ key, data });
-      channel.close();
+    // Global broadcast
+    if (broadcast && syncChannel.current) {
+      syncChannel.current.postMessage({ key, data });
     }
   }, []);
 

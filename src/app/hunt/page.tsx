@@ -35,14 +35,16 @@ export default function HuntPage() {
     }
   }, [auth, authLoading, router, isMounted]);
 
+  // Reactive data mapping from global state
   const teamData = useMemo(() => state.teams.find(t => t.id === auth.teamId), [state.teams, auth.teamId]);
   const currentLevelNumber = teamData?.currentLevel || 1;
   const currentLevel = useMemo(() => state.levels.find(l => l.order === currentLevelNumber), [state.levels, currentLevelNumber]);
   
-  const releasedHints = useMemo(() => 
-    state.hints.filter(h => h.levelId === currentLevel?.id && h.isReleased),
-    [state.hints, currentLevel?.id]
-  );
+  // Real-time hint filtering
+  const releasedHints = useMemo(() => {
+    if (!currentLevel) return [];
+    return state.hints.filter(h => h.levelId === currentLevel.id && h.isReleased);
+  }, [state.hints, currentLevel]);
 
   useEffect(() => {
     if (!teamData?.penaltyUntil) {
@@ -211,7 +213,7 @@ export default function HuntPage() {
                       <div className="bg-primary/20 p-1.5 rounded-lg">
                         <Lightbulb className="h-4 w-4 text-primary" />
                       </div>
-                      <span className="text-xs text-white uppercase font-bold tracking-[0.2em]">Live Hints Received:</span>
+                      <span className="text-xs text-white uppercase font-bold tracking-[0.2em]">Hints:</span>
                     </div>
                     <div className="space-y-4">
                       {releasedHints.map((hint) => (
