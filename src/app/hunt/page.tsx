@@ -193,7 +193,6 @@ export default function HuntPage() {
 
               <form onSubmit={handleSubmit} className="w-full max-w-lg space-y-6">
                 <div className="relative group w-full">
-                  {/* Liquid Glow Effect */}
                   <div className="absolute -inset-1 bg-primary/20 rounded-2xl blur-2xl opacity-0 group-hover:opacity-60 group-focus-within:opacity-100 transition-all duration-700 pointer-events-none" />
                   
                   <Input 
@@ -206,16 +205,18 @@ export default function HuntPage() {
                 </div>
 
                 <div className="relative group w-full">
-                  {/* Liquid Glow Effect */}
-                  <div className="absolute -inset-1 bg-primary/40 rounded-2xl blur-2xl opacity-0 group-hover:opacity-100 transition-all duration-700 pointer-events-none" />
+                  {/* Subtle Glow Effect */}
+                  <div className="absolute -inset-1 bg-primary/10 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-all duration-700 pointer-events-none" />
                   
                   <Button 
                     disabled={submitting || !!penaltyTimeLeft} 
                     type="submit" 
-                    className="relative w-full h-14 text-lg font-bold bg-primary hover:bg-primary/95 transition-all duration-500 rounded-xl group text-white border-none shadow-xl hover:shadow-[0_0_40px_-10px_rgba(54,144,207,0.8)] hover:[transform:perspective(1000px)_rotateX(5deg)_translateY(-2px)] active:scale-95"
+                    className="relative w-full h-14 text-lg font-bold bg-primary text-white border-none rounded-xl transition-all duration-500 ease-in-out hover:bg-white/5 hover:backdrop-blur-2xl hover:text-primary hover:border-white/10 hover:shadow-[0_0_20px_-5px_rgba(54,144,207,0.3)] hover:[transform:perspective(1000px)_rotateX(4deg)_translateY(-1px)] active:scale-95 overflow-hidden"
                   >
-                    {submitting ? "VERIFYING..." : "EXECUTE SUBMISSION"}
-                    {!submitting && <Send className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />}
+                    <span className="relative z-10 flex items-center justify-center">
+                      {submitting ? "VERIFYING..." : "EXECUTE SUBMISSION"}
+                      {!submitting && <Send className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />}
+                    </span>
                   </Button>
                 </div>
               </form>
