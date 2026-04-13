@@ -1,12 +1,14 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import Image from 'next/image';
 import { Navbar } from '@/components/Navbar';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
-import { Terminal, Send, Timer, HelpCircle, Lightbulb, CheckCircle2, Loader2, AlertCircle, ShieldAlert, Wifi } from 'lucide-react';
+import { Send, Timer, HelpCircle, Lightbulb, CheckCircle2, Loader2, AlertCircle, ShieldAlert, Wifi } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth-store';
 import { useStore } from '@/lib/local-store';
@@ -34,12 +36,10 @@ export default function HuntPage() {
     }
   }, [auth, authLoading, router, isMounted]);
 
-  // Reactive data mapping from global state
   const teamData = useMemo(() => state.teams.find(t => t.id === auth.teamId), [state.teams, auth.teamId]);
   const currentLevelNumber = teamData?.currentLevel || 1;
   const currentLevel = useMemo(() => state.levels.find(l => l.order === currentLevelNumber), [state.levels, currentLevelNumber]);
   
-  // Real-time hint filtering
   const releasedHints = useMemo(() => {
     if (!currentLevel) return [];
     return state.hints.filter(h => h.levelId === currentLevel.id && h.isReleased);
@@ -91,7 +91,6 @@ export default function HuntPage() {
     }
     
     setSubmitting(true);
-
     const result = await localApi.submitAnswer(auth.teamId, currentLevel.id, answer, { state, updateStore });
 
     if (result.success) {
@@ -126,8 +125,8 @@ export default function HuntPage() {
       <div className="w-full max-w-4xl space-y-8 animate-fade-in">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/5 pb-6">
           <div className="flex items-center gap-4">
-            <div className="bg-primary/10 p-2 rounded-lg">
-              <Terminal className="w-6 h-6 text-primary" />
+            <div className="bg-primary/10 p-1 rounded-lg">
+              <Image src="/images/logo1.png" alt="Terminal" width={40} height={40} className="object-contain" />
             </div>
             <div>
               <h2 className="text-2xl font-headline font-bold text-white uppercase tracking-tighter">
@@ -205,7 +204,6 @@ export default function HuntPage() {
                 </div>
 
                 <div className="relative group w-full">
-                  {/* Subtle Glow Effect */}
                   <div className="absolute -inset-1 bg-primary/10 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-all duration-700 pointer-events-none" />
                   
                   <Button 

@@ -1,6 +1,8 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-store';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -8,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Navbar } from '@/components/Navbar';
-import { ShieldAlert, Loader2, User, Lock } from 'lucide-react';
+import { Loader2, User, Lock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export default function AdminLoginPage() {
@@ -52,8 +54,8 @@ export default function AdminLoginPage() {
       <div className="w-full max-w-md animate-scale-up">
         <Card className="border-primary/20 bg-card/50 backdrop-blur-xl shadow-2xl">
           <CardHeader className="space-y-1 text-center pb-8">
-            <div className="mx-auto w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
-              <ShieldAlert className="w-6 h-6 text-primary" />
+            <div className="mx-auto w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-4 overflow-hidden">
+              <Image src="/images/logo1.png" alt="Admin" width={64} height={64} className="object-contain" />
             </div>
             <CardTitle className="text-3xl font-headline font-bold tracking-tight text-white">Admin Control</CardTitle>
             <CardDescription className="text-muted-foreground font-mono text-[10px] uppercase">Awaiting Root Credentials</CardDescription>

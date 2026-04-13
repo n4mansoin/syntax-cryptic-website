@@ -2,9 +2,9 @@
   "placeholderImages": [
     {
       "id": "hunt-logo",
-      "description": "The main logo for the Intra Syntax Cryptic Hunt",
-      "imageUrl": "https://picsum.photos/seed/syntax-logo/400/400",
-      "imageHint": "digital matrix"
+      "description": "The official INTRA SYNTAX logo",
+      "imageUrl": "/images/logo1.png",
+      "imageHint": "company logo"
     },
     {
       "id": "terminal-bg",

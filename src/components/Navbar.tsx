@@ -1,9 +1,11 @@
+
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useAuth } from '@/lib/auth-store';
 import { Button } from '@/components/ui/button';
-import { LogOut, LayoutDashboard, Terminal } from 'lucide-react';
+import { LogOut, LayoutDashboard } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export function Navbar() {
@@ -17,8 +19,14 @@ export function Navbar() {
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-8 py-4 bg-background/80 backdrop-blur-md border-b border-white/5">
-      <Link href="/" className="flex items-center gap-2">
-        <Terminal className="w-6 h-6 text-primary" />
+      <Link href="/" className="flex items-center gap-3">
+        <Image 
+          src="/images/logo1.png" 
+          alt="INTRA SYNTAX" 
+          width={32} 
+          height={32} 
+          className="object-contain"
+        />
         <span className="font-headline font-bold tracking-tighter text-xl text-white">INTRA SYNTAX</span>
       </Link>
 

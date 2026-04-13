@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-store';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -9,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Navbar } from '@/components/Navbar';
-import { Terminal, Lock, User, Loader2 } from 'lucide-react';
+import { Lock, User, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useStore } from '@/lib/local-store';
 import { localApi } from '@/services/local-api';
@@ -75,8 +76,8 @@ export default function LoginPage() {
       <div className="w-full max-w-md animate-scale-up">
         <Card className="border-white/5 bg-card/50 backdrop-blur-xl shadow-2xl">
           <CardHeader className="space-y-1 text-center pb-8">
-            <div className="mx-auto w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
-              <Terminal className="w-6 h-6 text-primary" />
+            <div className="mx-auto w-20 h-20 rounded-2xl bg-primary/5 flex items-center justify-center mb-4 overflow-hidden">
+              <Image src="/images/logo1.png" alt="Logo" width={80} height={80} className="object-contain p-2" />
             </div>
             <CardTitle className="text-3xl font-headline font-bold tracking-tight text-white">Identity Verification</CardTitle>
             <CardDescription className="text-muted-foreground font-mono text-[10px] uppercase">Awaiting Terminal Credentials</CardDescription>
