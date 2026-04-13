@@ -211,7 +211,7 @@ export default function HuntPage() {
                   <Button 
                     disabled={submitting || !!penaltyTimeLeft} 
                     type="submit" 
-                    className="relative w-full h-14 text-lg font-bold bg-primary text-white border-none rounded-xl transition-all duration-500 ease-in-out hover:bg-white/5 hover:backdrop-blur-2xl hover:text-primary hover:border-white/10 hover:shadow-[0_0_20px_-5px_rgba(54,144,207,0.3)] hover:[transform:perspective(1000px)_rotateX(4deg)_translateY(-1px)] active:scale-95 overflow-hidden"
+                    className="relative w-full h-14 text-lg font-bold bg-primary text-white border-none rounded-xl transition-all duration-500 ease-in-out hover:bg-white/5 hover:backdrop-blur-2xl hover:text-primary hover:border-white/10 hover:shadow-[0_0_20px_-5px_rgba(54,144,207,0.3)] hover:[transform:perspective(1000px)_rotateX(6deg)_rotateY(4deg)_translateY(-2px)] active:scale-95 overflow-hidden"
                   >
                     <span className="relative z-10 flex items-center justify-center">
                       {submitting ? "VERIFYING..." : "EXECUTE SUBMISSION"}
