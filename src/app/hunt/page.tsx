@@ -193,13 +193,16 @@ export default function HuntPage() {
               </div>
 
               <form onSubmit={handleSubmit} className="w-full max-w-lg space-y-6">
-                <Input 
-                  value={answer}
-                  onChange={(e) => setAnswer(e.target.value)}
-                  placeholder="INPUT DECRYPTION KEY"
-                  className="h-16 text-xl text-center bg-card border-white/5 focus:border-primary font-mono uppercase tracking-[0.3em] rounded-xl text-white"
-                  disabled={penaltyTimeLeft !== null}
-                />
+                <div className="relative group w-full">
+                  <div className="absolute -inset-1 bg-primary/20 rounded-2xl blur-2xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-700 pointer-events-none" />
+                  <Input 
+                    value={answer}
+                    onChange={(e) => setAnswer(e.target.value)}
+                    placeholder="INPUT DECRYPTION KEY"
+                    className="relative h-16 text-xl text-center bg-card/40 backdrop-blur-md border-white/5 focus:border-primary/50 focus:bg-white/[0.06] focus:backdrop-blur-2xl focus:shadow-[0_0_50px_-12px_rgba(54,144,207,0.4)] transition-all duration-700 ease-in-out font-mono uppercase tracking-[0.3em] rounded-xl text-white outline-none ring-0"
+                    disabled={penaltyTimeLeft !== null}
+                  />
+                </div>
                 <Button disabled={submitting || !!penaltyTimeLeft} type="submit" className="w-full h-14 text-lg font-bold bg-primary hover:bg-primary/90 transition-all rounded-xl group text-white">
                   {submitting ? "VERIFYING..." : "EXECUTE SUBMISSION"}
                   {!submitting && <Send className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />}
