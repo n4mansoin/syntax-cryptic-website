@@ -60,9 +60,10 @@ export const localApi = {
     if (!level) return { success: false, message: "Signal synchronization failure." };
 
     const normalizedInput = normalizeAnswer(userInput);
-    const normalizedAnswer = normalizeAnswer(level.answer);
+    // Support multiple correct answers separated by |
+    const validAnswers = level.answer.split('|').map(a => normalizeAnswer(a));
     
-    const isCorrect = normalizedInput === normalizedAnswer;
+    const isCorrect = validAnswers.includes(normalizedInput);
 
     const newAttempt: Attempt = {
       id: Math.random().toString(36).substr(2, 9),
