@@ -204,10 +204,20 @@ export default function HuntPage() {
                     disabled={penaltyTimeLeft !== null}
                   />
                 </div>
-                <Button disabled={submitting || !!penaltyTimeLeft} type="submit" className="w-full h-14 text-lg font-bold bg-primary hover:bg-primary/90 transition-all rounded-xl group text-white">
-                  {submitting ? "VERIFYING..." : "EXECUTE SUBMISSION"}
-                  {!submitting && <Send className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />}
-                </Button>
+
+                <div className="relative group w-full">
+                  {/* Liquid Glow Effect */}
+                  <div className="absolute -inset-1 bg-primary/40 rounded-2xl blur-2xl opacity-0 group-hover:opacity-100 transition-all duration-700 pointer-events-none" />
+                  
+                  <Button 
+                    disabled={submitting || !!penaltyTimeLeft} 
+                    type="submit" 
+                    className="relative w-full h-14 text-lg font-bold bg-primary hover:bg-primary/95 transition-all duration-500 rounded-xl group text-white border-none shadow-xl hover:shadow-[0_0_40px_-10px_rgba(54,144,207,0.8)] hover:[transform:perspective(1000px)_rotateX(5deg)_translateY(-2px)] active:scale-95"
+                  >
+                    {submitting ? "VERIFYING..." : "EXECUTE SUBMISSION"}
+                    {!submitting && <Send className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />}
+                  </Button>
+                </div>
               </form>
 
               <div className="w-full max-w-lg">
