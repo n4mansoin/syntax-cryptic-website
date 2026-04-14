@@ -1,5 +1,13 @@
 /**
- * Generates a SHA-256 hash of a string.
+ * Normalizes input for comparison.
+ */
+export function normalizeAnswer(answer: string): string {
+  return answer.toLowerCase().trim();
+}
+
+/**
+ * Generates a SHA-256 hash of a string using a salt and a secret key.
+ * This is used for both answer verification and password security.
  */
 export async function sha256(message: string): Promise<string> {
   const msgUint8 = new TextEncoder().encode(message);
@@ -10,35 +18,10 @@ export async function sha256(message: string): Promise<string> {
 }
 
 /**
- * Normalizes input for comparison.
+ * Advanced Cryptic Hash for answers.
+ * answerHash = SHA256(salt + SECRET_KEY + correctAnswerLowercase)
  */
-export function normalizeAnswer(answer: string): string {
-  return answer.toLowerCase().trim();
-}
-
-const SYNC_KEY = "intra_syntax_secret_2026";
-
-/**
- * Simple XOR-based encryption for prototype security.
- */
-export function encryptAnswer(text: string): string {
-  return btoa(
-    text.split('').map((char, i) => 
-      String.fromCharCode(char.charCodeAt(0) ^ SYNC_KEY.charCodeAt(i % SYNC_KEY.length))
-    ).join('')
-  );
-}
-
-/**
- * Decrypts the stored answer string.
- */
-export function decryptAnswer(encoded: string): string {
-  try {
-    const decoded = atob(encoded);
-    return decoded.split('').map((char, i) => 
-      String.fromCharCode(char.charCodeAt(0) ^ SYNC_KEY.charCodeAt(i % SYNC_KEY.length))
-    ).join('');
-  } catch (e) {
-    return encoded; // Fallback for unencrypted strings
-  }
+export async function generateAnswerHash(input: string, salt: string, secretKey: string): Promise<string> {
+  const normalized = normalizeAnswer(input);
+  return await sha256(salt + secretKey + normalized);
 }

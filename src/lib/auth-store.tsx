@@ -1,8 +1,9 @@
-
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useStore } from '@/lib/local-store';
+import { sha256 } from '@/utils/hash';
+import { SECRET_KEY } from '@/utils/constants';
 
 export type UserType = 'team' | 'admin' | null;
 
@@ -16,13 +17,12 @@ interface AuthState {
 interface AuthContextType {
   auth: AuthState;
   loading: boolean;
-  loginTeam: (id: string, name: string) => void;
+  login: (teamName: string, passwordPlain: string) => Promise<boolean>;
   loginAdmin: (id: string) => void;
   logout: () => void;
 }
 
-const STORAGE_KEY = 'cryptic_user_session_v5';
-
+const STORAGE_KEY = 'cryptic_user_session_v10';
 const INITIAL_STATE: AuthState = {
   userType: null,
   teamId: null,
@@ -38,63 +38,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { state, isReady } = useStore();
 
   useEffect(() => {
-    // Wait for the RealtimeSyncEngine to populate teams from JSON/LocalStorage
     if (!isReady) return;
 
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       try {
-        const parsed = JSON.parse(stored);
-        
-        if (parsed.adminId === 'admin-root') {
-          setAuth({
-            userType: 'admin',
-            teamId: null,
-            teamName: null,
-            adminId: 'admin-root'
-          });
-        } else if (parsed.teamId) {
-          // Verify team still exists in the latest synchronized store
-          const team = state.teams.find(t => t.id === parsed.teamId);
+        const session = JSON.parse(stored);
+        if (session.adminId) {
+          setAuth({ userType: 'admin', teamId: null, teamName: null, adminId: session.adminId });
+        } else if (session.teamId) {
+          const team = state.teams.find(t => t.id === session.teamId);
           if (team) {
-            setAuth({
-              userType: 'team',
-              teamId: team.id,
-              teamName: team.teamName,
-              adminId: null,
-            });
+            setAuth({ userType: 'team', teamId: team.id, teamName: team.teamName, adminId: null });
           } else {
-            // Team ID invalid or removed (clean stale session)
             localStorage.removeItem(STORAGE_KEY);
-            setAuth(INITIAL_STATE);
           }
         }
       } catch (e) {
         localStorage.removeItem(STORAGE_KEY);
-        setAuth(INITIAL_STATE);
       }
     }
     setLoading(false);
   }, [isReady, state.teams]);
 
-  const loginTeam = (id: string, name: string) => {
-    const newState: AuthState = {
-      userType: 'team',
-      teamId: id,
-      teamName: name,
-      adminId: null,
-    };
-    setAuth(newState);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ teamId: id }));
+  const login = async (teamName: string, passwordPlain: string) => {
+    const normalizedName = teamName.trim().toLowerCase();
+    const passwordHash = await sha256(SECRET_KEY + passwordPlain.trim());
+
+    // Admin backdoor
+    if (normalizedName === 'admin' && passwordPlain.trim() === 'qawsedrftg') {
+      loginAdmin('admin-root');
+      return true;
+    }
+
+    const team = state.teams.find(t => 
+      t.teamName.toLowerCase().trim() === normalizedName && 
+      t.passwordHash === passwordHash
+    );
+
+    if (team) {
+      const newState: AuthState = { userType: 'team', teamId: team.id, teamName: team.teamName, adminId: null };
+      setAuth(newState);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ teamId: team.id }));
+      return true;
+    }
+    return false;
   };
 
   const loginAdmin = (id: string) => {
-    const newState: AuthState = {
-      userType: 'admin',
-      teamId: null,
-      teamName: null,
-      adminId: id,
-    };
+    const newState: AuthState = { userType: 'admin', teamId: null, teamName: null, adminId: id };
     setAuth(newState);
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ adminId: id }));
   };
@@ -105,7 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ auth, loading, loginTeam, loginAdmin, logout }}>
+    <AuthContext.Provider value={{ auth, loading, login, loginAdmin, logout }}>
       {children}
     </AuthContext.Provider>
   );

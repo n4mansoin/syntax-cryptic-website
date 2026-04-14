@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -13,15 +12,14 @@ import { Navbar } from '@/components/Navbar';
 import { Lock, User, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useStore } from '@/lib/local-store';
-import { localApi } from '@/services/local-api';
 
 export default function LoginPage() {
   const [teamName, setTeamName] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const router = useRouter();
-  const { loginTeam, loginAdmin, auth, loading: authLoading } = useAuth();
-  const { state, isReady } = useStore();
+  const { login, auth, loading: authLoading } = useAuth();
+  const { isReady } = useStore();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -36,29 +34,18 @@ export default function LoginPage() {
     if (!isReady || submitting) return;
     
     setSubmitting(true);
-    try {
-      const team = await localApi.loginTeam(teamName, password, state);
+    const success = await login(teamName, password);
 
-      if (team) {
-        if (team.id === 'admin-root') {
-          loginAdmin('admin-root');
-          toast({ title: "Access Granted", description: "Terminal ID: ROOT_ADMIN" });
-        } else {
-          loginTeam(team.id, team.teamName);
-          toast({ title: "Signal Established", description: `Welcome back, ${team.teamName}.` });
-        }
-      } else {
-        toast({ 
-          variant: "destructive", 
-          title: "Authentication Failed", 
-          description: "Invalid credentials. Signal rejected." 
-        });
-      }
-    } catch (err) {
-      toast({ variant: "destructive", title: "System Error", description: "Authentication node unreachable." });
-    } finally {
-      setSubmitting(false);
+    if (success) {
+      toast({ title: "Signal Established", description: "Identity verified. Downlink active." });
+    } else {
+      toast({ 
+        variant: "destructive", 
+        title: "Access Denied", 
+        description: "Invalid credentials. Protocol rejected." 
+      });
     }
+    setSubmitting(false);
   };
 
   if (!isReady || authLoading) {
@@ -74,25 +61,24 @@ export default function LoginPage() {
       <Navbar />
       
       <div className="w-full max-w-md animate-scale-up">
-        <Card className="border-white/5 bg-card/50 backdrop-blur-xl shadow-2xl">
+        <Card className="border-white/5 bg-card/40 backdrop-blur-2xl shadow-2xl rounded-2xl">
           <CardHeader className="space-y-1 text-center pb-8">
             <div className="mx-auto w-20 h-20 rounded-2xl bg-primary/5 flex items-center justify-center mb-4 overflow-hidden">
-              <Image src="/images/logo1.png" alt="Logo" width={80} height={80} className="object-contain p-2" />
+              <Image src="/images/logo1.png" alt="Logo" width={64} height={64} className="object-contain" />
             </div>
-            <CardTitle className="text-3xl font-headline font-bold tracking-tight text-white">Identity Verification</CardTitle>
+            <CardTitle className="text-3xl font-headline font-bold tracking-tight text-white">Identity Check</CardTitle>
             <CardDescription className="text-muted-foreground font-mono text-[10px] uppercase">Awaiting Terminal Credentials</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleLogin} className="space-y-6">
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="teamName" className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary/70">Terminal ID</Label>
+                  <Label className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary/70">Terminal ID</Label>
                   <div className="relative group">
                     <User className="absolute left-3 top-3 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                     <Input 
-                      id="teamName" 
-                      placeholder="Terminal Name" 
-                      className="pl-10 h-12 bg-background border-white/5 focus:border-primary/50 font-mono text-white" 
+                      placeholder="Enter Team Name" 
+                      className="pl-10 h-12 bg-background/50 border-white/5 focus:border-primary/50 font-mono text-white" 
                       value={teamName}
                       onChange={(e) => setTeamName(e.target.value)}
                       required
@@ -100,14 +86,13 @@ export default function LoginPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="password" className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary/70">Access Key</Label>
+                  <Label className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary/70">Access Key</Label>
                   <div className="relative group">
                     <Lock className="absolute left-3 top-3 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                     <Input 
-                      id="password" 
                       type="password" 
                       placeholder="••••••••" 
-                      className="pl-10 h-12 bg-background border-white/5 focus:border-primary/50 font-mono text-white" 
+                      className="pl-10 h-12 bg-background/50 border-white/5 focus:border-primary/50 font-mono text-white" 
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
@@ -115,8 +100,8 @@ export default function LoginPage() {
                   </div>
                 </div>
               </div>
-              <Button type="submit" disabled={submitting} className="w-full h-12 font-bold bg-primary hover:bg-primary/90 text-white uppercase tracking-widest">
-                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "DECRYPT ACCESS"}
+              <Button type="submit" disabled={submitting} className="w-full h-12 font-bold bg-primary text-white border-none rounded-xl tracking-widest uppercase transition-all hover:opacity-90 active:scale-95">
+                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "VERIFY IDENTITY"}
               </Button>
             </form>
           </CardContent>
