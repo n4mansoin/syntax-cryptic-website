@@ -4,6 +4,7 @@ import { Toaster } from "@/components/ui/toaster"
 import { AuthProvider } from '@/lib/auth-store';
 import { RealtimeSyncEngine } from '@/lib/local-store';
 import { Analytics } from "@vercel/analytics/next"
+import { FirebaseClientProvider } from '@/firebase/client-provider';
 
 export const metadata: Metadata = {
   title: 'INTRA SYNTAX CRYPTIC',
@@ -29,13 +30,15 @@ export default function RootLayout({
         className="font-body antialiased bg-background text-foreground selection:bg-primary selection:text-primary-foreground"
         suppressHydrationWarning
       >
-        <RealtimeSyncEngine>
-          <AuthProvider>
-            {children}
-            <Toaster />
-            <Analytics />
-          </AuthProvider>
-        </RealtimeSyncEngine>
+        <FirebaseClientProvider>
+          <RealtimeSyncEngine>
+            <AuthProvider>
+              {children}
+              <Toaster />
+              <Analytics />
+            </AuthProvider>
+          </RealtimeSyncEngine>
+        </FirebaseClientProvider>
       </body>
     </html>
   );

@@ -12,10 +12,12 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth-store';
 import { useStore } from '@/lib/local-store';
 import { localApi } from '@/services/local-api';
+import { useFirestore } from '@/firebase';
 
 export default function HuntPage() {
+  const db = useFirestore();
   const { auth, loading: authLoading } = useAuth();
-  const { state, isReady, updateStore } = useStore();
+  const { state, isReady } = useStore();
   const router = useRouter();
   const { toast } = useToast();
   
@@ -76,10 +78,10 @@ export default function HuntPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!answer.trim() || !auth.teamId || !currentLevel || penaltyTimeLeft) return;
+    if (!answer.trim() || !auth.teamId || !currentLevel || penaltyTimeLeft || !db) return;
     
     setSubmitting(true);
-    const result = await localApi.submitAnswer(auth.teamId, currentLevel.id, answer, state, updateStore);
+    const result = await localApi.submitAnswer(db, auth.teamId, currentLevel.id, answer, state);
 
     if (result.success) {
       toast({ title: "Verification Passed", description: result.message });

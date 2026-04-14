@@ -1,9 +1,8 @@
-
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
-import initialLevels from '@/data/levels.json';
-import initialTeams from '@/data/teams.json';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 
 export interface Team {
   id: string;
@@ -63,10 +62,8 @@ interface StoreContextType {
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
-const STORAGE_KEY = 'cryptic_store_v14_stable'; 
-const SYNC_CHANNEL_NAME = 'cryptic-sync-v14-stable';
-
 export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
+  const firestore = useFirestore();
   const [state, setState] = useState<StoreState>({
     teams: [],
     levels: [],
@@ -74,89 +71,64 @@ export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
     attempts: [],
     flags: [],
   });
-  const [isReady, setIsReady] = useState(false);
-  const syncChannel = useRef<BroadcastChannel | null>(null);
 
-  const loadInitialState = useCallback(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    let newState: StoreState;
+  // Fetch Levels (Ordered)
+  const levelsQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'levels'), orderBy('order', 'asc'));
+  }, [firestore]);
+  const { data: levels, isLoading: levelsLoading } = useCollection<Level>(levelsQuery);
 
-    if (stored) {
-      try {
-        newState = JSON.parse(stored);
-        // We only use the stored levels as they contain our encrypted answers
-        if (!newState.levels || newState.levels.length === 0) {
-          newState.levels = initialLevels as Level[];
-        }
-        if (!newState.teams || newState.teams.length === 0) {
-          newState.teams = initialTeams as Team[];
-        }
-      } catch (e) {
-        newState = {
-          teams: initialTeams as Team[],
-          levels: initialLevels as Level[],
-          hints: [],
-          attempts: [],
-          flags: [],
-        };
-      }
-    } else {
-      newState = {
-        teams: initialTeams as Team[],
-        levels: initialLevels as Level[],
-        hints: [],
-        attempts: [],
-        flags: [],
-      };
-    }
+  // Fetch Teams
+  const teamsQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return collection(firestore, 'teams');
+  }, [firestore]);
+  const { data: teams, isLoading: teamsLoading } = useCollection<Team>(teamsQuery);
 
-    setState(newState);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(newState));
-    setIsReady(true);
-  }, []);
+  // Fetch Flags
+  const flagsQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return collection(firestore, 'flags');
+  }, [firestore]);
+  const { data: flags, isLoading: flagsLoading } = useCollection<Flag>(flagsQuery);
+
+  // Hints (We listen for all released hints globally for now)
+  useEffect(() => {
+    if (!firestore) return;
+    const unsub = onSnapshot(collection(firestore, 'hints'), (snapshot) => {
+      const hintData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Hint));
+      setState(prev => ({ ...prev, hints: hintData }));
+    });
+    return () => unsub();
+  }, [firestore]);
+
+  // Attempts (For the current team, this would be handled contextually in pages, 
+  // but for the global admin state we listen for updates)
+  useEffect(() => {
+    if (!firestore) return;
+    const unsub = onSnapshot(collection(firestore, 'attempts'), (snapshot) => {
+      const attemptData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Attempt));
+      setState(prev => ({ ...prev, attempts: attemptData }));
+    });
+    return () => unsub();
+  }, [firestore]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    setState(prev => ({
+      ...prev,
+      levels: levels || [],
+      teams: teams || [],
+      flags: flags || [],
+    }));
+  }, [levels, teams, flags]);
 
-    if (!syncChannel.current) {
-      syncChannel.current = new BroadcastChannel(SYNC_CHANNEL_NAME);
-    }
+  const isReady = !levelsLoading && !teamsLoading && !flagsLoading;
 
-    const handleMessage = (event: MessageEvent) => {
-      if (event.data && event.data.type === 'STATE_UPDATE') {
-        setState(event.data.payload);
-      }
-    };
-
-    const handleStorage = (event: StorageEvent) => {
-      if (event.key === STORAGE_KEY && event.newValue) {
-        try {
-          const parsed = JSON.parse(event.newValue);
-          setState(parsed);
-        } catch (e) { }
-      }
-    };
-
-    syncChannel.current.onmessage = handleMessage;
-    window.addEventListener('storage', handleStorage);
-
-    loadInitialState();
-
-    return () => {
-      window.removeEventListener('storage', handleStorage);
-      if (syncChannel.current) syncChannel.current.close();
-    };
-  }, [loadInitialState]);
-
-  const updateStore = useCallback((updater: (prev: StoreState) => StoreState) => {
-    setState(prev => {
-      const next = updater(prev);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      if (syncChannel.current) {
-        syncChannel.current.postMessage({ type: 'STATE_UPDATE', payload: next });
-      }
-      return next;
-    });
+  // Since we are now cloud-backed, we don't need a local updater function for global state.
+  // Mutations are handled directly via Firestore in local-api.ts.
+  const updateStore = useCallback(() => {
+    console.warn('updateStore called on cloud-backed RealtimeSyncEngine. Mutations should occur via Firestore directly.');
   }, []);
 
   return (
