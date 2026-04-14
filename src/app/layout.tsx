@@ -7,6 +7,9 @@ import { RealtimeSyncEngine } from '@/lib/local-store';
 export const metadata: Metadata = {
   title: 'INTRA SYNTAX CRYPTIC',
   description: 'Minimalist cryptic hunt platform',
+  icons: {
+    icon: '/images/logo1.png',
+  },
 };
 
 export default function RootLayout({
