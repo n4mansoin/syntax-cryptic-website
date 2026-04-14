@@ -2,7 +2,14 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useAuth as useFirebaseAuth, useUser } from '@/firebase';
-import { signInAnonymously } from 'firebase/auth';
+import { 
+  signInAnonymously, 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword,
+  signOut 
+} from 'firebase/auth';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { useFirestore } from '@/firebase';
 
 export type UserType = 'team' | 'admin' | null;
 
@@ -17,11 +24,11 @@ interface AuthContextType {
   auth: AuthState;
   loading: boolean;
   login: (teamName: string, passwordPlain: string) => Promise<boolean>;
-  loginAdmin: (id: string) => void;
+  loginAdmin: (username: string, passwordPlain: string) => Promise<boolean>;
   logout: () => void;
 }
 
-const STORAGE_KEY = 'cryptic_user_session_v14';
+const STORAGE_KEY = 'cryptic_user_session_v15';
 const INITIAL_STATE: AuthState = {
   userType: null,
   teamId: null,
@@ -35,26 +42,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [auth, setAuth] = useState<AuthState>(INITIAL_STATE);
   const [loading, setLoading] = useState(true);
   const firebaseAuth = useFirebaseAuth();
+  const db = useFirestore();
   const { user, isUserLoading } = useUser();
 
-  // Handle Firebase Anonymous Login on mount
   useEffect(() => {
     if (!isUserLoading && !user && firebaseAuth) {
       signInAnonymously(firebaseAuth).catch(err => console.error("Firebase Anonymous Auth failed", err));
     }
   }, [user, isUserLoading, firebaseAuth]);
 
-  // Handle local session restore
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       try {
-        const session = JSON.parse(stored);
-        if (session.adminId) {
-          setAuth({ userType: 'admin', teamId: null, teamName: null, adminId: session.adminId });
-        } else if (session.teamId) {
-          setAuth({ userType: 'team', teamId: session.teamId, teamName: session.teamName || 'Team', adminId: null });
-        }
+        setAuth(JSON.parse(stored));
       } catch (e) {
         localStorage.removeItem(STORAGE_KEY);
       }
@@ -63,30 +64,62 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (teamName: string, passwordPlain: string) => {
+    if (!firebaseAuth) return false;
     const normalizedName = teamName.trim().toLowerCase();
-    
-    // Admin backdoor
-    if (normalizedName === 'admin' && passwordPlain.trim() === 'qawsedrftg') {
-      loginAdmin('admin-root');
-      return true;
-    }
+    const email = `${normalizedName}@intra-syntax.com`;
+    const password = passwordPlain.trim();
 
-    // In a real app we would check credentials against Firestore here
-    // For now we assume pre-defined logic or previous team check
-    const teamId = `team-${normalizedName.replace(/\s+/g, '-')}`;
-    const newState: AuthState = { userType: 'team', teamId, teamName, adminId: null };
-    setAuth(newState);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(newState));
-    return true;
+    try {
+      let userCredential;
+      try {
+        userCredential = await signInWithEmailAndPassword(firebaseAuth, email, password);
+      } catch (err: any) {
+        if (err.code === 'auth/user-not-found') {
+          userCredential = await createUserWithEmailAndPassword(firebaseAuth, email, password);
+        } else {
+          throw err;
+        }
+      }
+
+      const teamId = userCredential.user.uid;
+      const newState: AuthState = { userType: 'team', teamId, teamName, adminId: null };
+      setAuth(newState);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(newState));
+      return true;
+    } catch (err) {
+      console.error("Login failed", err);
+      return false;
+    }
   };
 
-  const loginAdmin = (id: string) => {
-    const newState: AuthState = { userType: 'admin', teamId: null, teamName: null, adminId: id };
-    setAuth(newState);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(newState));
+  const loginAdmin = async (username: string, passwordPlain: string) => {
+    if (!firebaseAuth || !db) return false;
+    const email = `${username.toLowerCase()}@intra-syntax.com`;
+    const password = passwordPlain.trim();
+
+    try {
+      const userCredential = await signInWithEmailAndPassword(firebaseAuth, email, password);
+      const adminId = userCredential.user.uid;
+      
+      const roleRef = doc(db, 'admin_roles', adminId);
+      const roleSnap = await getDoc(roleRef);
+      
+      if (!roleSnap.exists()) {
+        await setDoc(roleRef, { username, role: 'admin' });
+      }
+
+      const newState: AuthState = { userType: 'admin', teamId: null, teamName: null, adminId };
+      setAuth(newState);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(newState));
+      return true;
+    } catch (err) {
+      console.error("Admin login failed", err);
+      return false;
+    }
   };
 
   const logout = () => {
+    if (firebaseAuth) signOut(firebaseAuth);
     setAuth(INITIAL_STATE);
     localStorage.removeItem(STORAGE_KEY);
   };

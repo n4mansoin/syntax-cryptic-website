@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -14,9 +13,9 @@ import { Loader2, User, Lock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export default function AdminLoginPage() {
-  const [adminName, setAdminName] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const router = useRouter();
   const { loginAdmin, auth, loading: authLoading } = useAuth();
   const { toast } = useToast();
@@ -27,22 +26,23 @@ export default function AdminLoginPage() {
     }
   }, [auth, authLoading, router]);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    setSubmitting(true);
     
-    // Updated Credentials: admin / qawsedrftg
-    if (adminName === 'admin' && password === 'qawsedrftg') {
-      loginAdmin('admin-root');
+    const success = await loginAdmin(username, password);
+    
+    if (success) {
       toast({ title: "Access Granted", description: "Welcome back, Administrator." });
+      router.push('/admin/dashboard');
     } else {
       toast({ 
         variant: "destructive", 
         title: "Authentication Failed", 
-        description: "Invalid credentials. Terminal access denied." 
+        description: "Invalid credentials or unauthorized terminal access." 
       });
     }
-    setLoading(false);
+    setSubmitting(false);
   };
 
   if (authLoading) return null;
@@ -70,8 +70,8 @@ export default function AdminLoginPage() {
                     <Input 
                       placeholder="admin" 
                       className="pl-10 h-12 bg-background border-white/5 focus:border-primary/50 font-mono text-white" 
-                      value={adminName}
-                      onChange={(e) => setAdminName(e.target.value)}
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
                       required
                     />
                   </div>
@@ -91,8 +91,8 @@ export default function AdminLoginPage() {
                   </div>
                 </div>
               </div>
-              <Button type="submit" disabled={loading} className="w-full h-12 bg-primary hover:bg-primary/90 font-bold text-white uppercase tracking-widest">
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "PROCEED"}
+              <Button type="submit" disabled={submitting} className="w-full h-12 bg-primary hover:bg-primary/90 font-bold text-white uppercase tracking-widest">
+                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "PROCEED"}
               </Button>
             </form>
           </CardContent>

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -9,22 +8,27 @@ import { Database, Loader2, CheckCircle2, RotateCcw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import initialLevels from '@/data/levels.json';
 import initialTeams from '@/data/teams.json';
-import { useFirestore } from '@/firebase';
+import { useFirestore, useUser } from '@/firebase';
 import { collection, doc, writeBatch } from 'firebase/firestore';
 
 export default function AdminSetupPage() {
   const db = useFirestore();
+  const { user } = useUser();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
 
   const handleResetDatabase = async () => {
-    if (!db) return;
+    if (!db || !user) {
+      toast({ variant: "destructive", title: "Setup Failed", description: "You must be signed in to perform synchronization." });
+      return;
+    }
+    
     setLoading(true);
     try {
       const batch = writeBatch(db);
 
-      // 1. Sync Levels (Plain Text)
+      // 1. Sync Levels
       initialLevels.forEach((level: any) => {
         const levelRef = doc(db, 'levels', level.id);
         batch.set(levelRef, level);
@@ -33,16 +37,21 @@ export default function AdminSetupPage() {
       // 2. Sync Teams
       initialTeams.forEach((team: any) => {
         const teamRef = doc(db, 'teams', team.id);
-        batch.set(teamRef, team);
+        const { password, ...publicData } = team;
+        batch.set(teamRef, publicData);
       });
+
+      // 3. Ensure current user is an admin in Firestore
+      const adminRoleRef = doc(db, 'admin_roles', user.uid);
+      batch.set(adminRoleRef, { username: 'admin', role: 'admin' }, { merge: true });
 
       await batch.commit();
       
       setDone(true);
-      toast({ title: "Cloud Synchronization Complete", description: "Signal keys broadcasted to production Firestore." });
+      toast({ title: "Cloud Synchronization Complete", description: "Production Firestore updated successfully." });
     } catch (error: any) {
       console.error(error);
-      toast({ variant: "destructive", title: "Setup Failed", description: "Could not synchronize cloud store." });
+      toast({ variant: "destructive", title: "Setup Failed", description: "Insufficient permissions or cloud connection error." });
     } finally {
       setLoading(false);
     }

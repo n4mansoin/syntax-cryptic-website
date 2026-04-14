@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
@@ -9,7 +8,7 @@ import { useAuth } from '@/lib/auth-store';
 export interface Team {
   id: string;
   teamName: string;
-  password: string;
+  password?: string;
   currentLevel: number;
   flagCount: number;
   penaltyUntil: string | null;
@@ -75,28 +74,28 @@ export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
     flags: [],
   });
 
-  // Fetch Levels (Public for signed-in users)
+  // Level listener (Global)
   const levelsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return query(collection(firestore, 'levels'), orderBy('order', 'asc'));
-  }, [firestore, user]);
+  }, [firestore, !!user]);
   const { data: levels, isLoading: levelsLoading } = useCollection<Level>(levelsQuery);
 
-  // Fetch Teams (Public for signed-in users)
+  // Team listener (Global)
   const teamsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return collection(firestore, 'teams');
-  }, [firestore, user]);
+  }, [firestore, !!user]);
   const { data: teams, isLoading: teamsLoading } = useCollection<Team>(teamsQuery);
 
-  // Fetch Flags (Admin only)
+  // Flag listener (STRICT ADMIN ONLY)
   const flagsQuery = useMemoFirebase(() => {
-    if (!firestore || auth.userType !== 'admin') return null;
+    if (!firestore || !user || auth.userType !== 'admin') return null;
     return collection(firestore, 'flags');
-  }, [firestore, auth.userType]);
+  }, [firestore, !!user, auth.userType]);
   const { data: flags, isLoading: flagsLoading } = useCollection<Flag>(flagsQuery);
 
-  // Fetch Hints (Released ones or all for admin)
+  // Hint listener (Conditional based on role)
   useEffect(() => {
     if (!firestore || !user) return;
     
@@ -110,23 +109,27 @@ export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
     const unsub = onSnapshot(hintQuery, (snapshot) => {
       const hintData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Hint));
       setState(prev => ({ ...prev, hints: hintData }));
-    }, (err) => console.warn("Hints listener error", err));
+    }, (err) => {
+      if (err.code !== 'permission-denied') console.warn("Hints listener error", err);
+    });
 
     return () => unsub();
-  }, [firestore, user, auth.userType]);
+  }, [firestore, !!user, auth.userType]);
 
-  // Fetch Attempts (All for admin)
+  // Attempt listener (ADMIN ONLY)
   useEffect(() => {
-    if (!firestore || auth.userType !== 'admin') return;
+    if (!firestore || !user || auth.userType !== 'admin') return;
     
     const attemptsQuery = collectionGroup(firestore, 'attempts');
     const unsub = onSnapshot(attemptsQuery, (snapshot) => {
       const attemptData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Attempt));
       setState(prev => ({ ...prev, attempts: attemptData }));
-    }, (err) => console.warn("Attempts listener error", err));
+    }, (err) => {
+      if (err.code !== 'permission-denied') console.warn("Attempts listener error", err);
+    });
 
     return () => unsub();
-  }, [firestore, auth.userType]);
+  }, [firestore, !!user, auth.userType]);
 
   useEffect(() => {
     setState(prev => ({
@@ -139,9 +142,7 @@ export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
 
   const isReady = !!user && !levelsLoading && !teamsLoading;
 
-  const updateStore = useCallback(() => {
-    // Mutations handled directly via Firestore API in localApi
-  }, []);
+  const updateStore = useCallback(() => {}, []);
 
   return (
     <StoreContext.Provider value={{ state, isReady, updateStore }}>
