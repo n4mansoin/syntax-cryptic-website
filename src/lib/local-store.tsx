@@ -63,8 +63,8 @@ interface StoreContextType {
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
-const STORAGE_KEY = 'cryptic_store_v14'; 
-const SYNC_CHANNEL_NAME = 'cryptic-sync-v14';
+const STORAGE_KEY = 'cryptic_store_v14_stable'; 
+const SYNC_CHANNEL_NAME = 'cryptic-sync-v14-stable';
 
 export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
   const [state, setState] = useState<StoreState>({
@@ -84,9 +84,10 @@ export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
     if (stored) {
       try {
         newState = JSON.parse(stored);
-        // Always refresh levels from JSON to ensure latest questions/encryption
-        newState.levels = initialLevels as Level[];
-        
+        // We only use the stored levels as they contain our encrypted answers
+        if (!newState.levels || newState.levels.length === 0) {
+          newState.levels = initialLevels as Level[];
+        }
         if (!newState.teams || newState.teams.length === 0) {
           newState.teams = initialTeams as Team[];
         }

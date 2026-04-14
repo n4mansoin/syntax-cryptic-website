@@ -1,3 +1,4 @@
+
 'use client';
 
 import { decryptAnswer } from '@/utils/crypto';
@@ -27,7 +28,7 @@ export const localApi = {
     const recentAttempts = state.attempts.filter(a => a.teamId === teamId && new Date(a.timestamp) > oneMinuteAgo);
 
     if (recentAttempts.length >= ATTEMPT_LIMIT_PER_MINUTE) {
-      this.flagTeam(teamId, "Rate Limit Breach: Signal Flood", updateStore);
+      localApi.flagTeam(teamId, "Rate Limit Breach: Signal Flood", updateStore);
       return { success: false, message: "Protocol Violation: Signal Flood Detected.", flagged: true };
     }
 
@@ -44,7 +45,7 @@ export const localApi = {
       return { success: false, message: "Security Layer Error. Reset System via Admin." };
     }
 
-    // Support multiple answers if the string contains "|" (though usually singular)
+    // Support multiple answers if the string contains "|" 
     const validAnswers = decryptedString.toLowerCase().split('|').map(a => a.trim());
     const isCorrect = validAnswers.includes(normalizedInput);
 

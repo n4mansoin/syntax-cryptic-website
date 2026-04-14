@@ -18,7 +18,7 @@ export default function AdminSetupPage() {
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
 
-  // Source of Truth for Answers (Only exists here for initialization)
+  // Source of Truth for Answers
   const RAW_ANSWERS: Record<string, string> = {
     lvl1: "internet",
     lvl2: "hexadecimal",
