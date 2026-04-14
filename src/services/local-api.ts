@@ -1,7 +1,7 @@
 
 'use client';
 
-import { normalizeAnswer } from '@/utils/hash';
+import { normalizeAnswer, decryptAnswer } from '@/utils/hash';
 import { ATTEMPT_LIMIT_PER_MINUTE, PENALTY_DURATION_MINUTES, FLAGS_UNTIL_PENALTY } from '@/utils/constants';
 import { StoreState, Team, Attempt, Hint } from '@/lib/local-store';
 
@@ -59,9 +59,11 @@ export const localApi = {
     const level = state.levels.find(l => l.id === levelId);
     if (!level) return { success: false, message: "Signal synchronization failure." };
 
+    const decryptedAnswer = decryptAnswer(level.answer);
     const normalizedInput = normalizeAnswer(userInput);
+    
     // Support multiple correct answers separated by |
-    const validAnswers = level.answer.split('|').map(a => normalizeAnswer(a));
+    const validAnswers = decryptedAnswer.split('|').map(a => normalizeAnswer(a));
     
     const isCorrect = validAnswers.includes(normalizedInput);
 
