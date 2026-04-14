@@ -84,6 +84,7 @@ export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
     if (stored) {
       try {
         newState = JSON.parse(stored);
+        // Always refresh levels from JSON to ensure latest questions/encryption
         newState.levels = initialLevels as Level[];
         
         if (!newState.teams || newState.teams.length === 0) {

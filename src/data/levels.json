@@ -30,7 +30,7 @@
   },
   {
     "id": "lvl5",
-    "order": 5,
+    "order": 1,
     "question": "What has a head and a tail but no body?",
     "encryptedAnswer": "U2FsdGVkX19dX7Z+vQ8M4P3L7V0U4Y=",
     "salt": "v5q6t"
