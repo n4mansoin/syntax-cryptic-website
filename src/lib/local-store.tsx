@@ -37,6 +37,7 @@ export interface Attempt {
   levelId: string;
   timestamp: string;
   isCorrect: boolean;
+  ip?: string;
 }
 
 export interface Flag {
@@ -62,8 +63,8 @@ interface StoreContextType {
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
-const STORAGE_KEY = 'cryptic_store_v11';
-const SYNC_CHANNEL_NAME = 'cryptic-sync-v11';
+const STORAGE_KEY = 'cryptic_store_v12'; // Incremented version for forced migration
+const SYNC_CHANNEL_NAME = 'cryptic-sync-v12';
 
 export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
   const [state, setState] = useState<StoreState>({
@@ -83,8 +84,13 @@ export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
     if (stored) {
       try {
         newState = JSON.parse(stored);
-        // Ensure levels are always up to date with the latest questions from JSON
+        // Always sync levels to ensure latest questions
         newState.levels = initialLevels as Level[];
+        
+        // If teams look empty or like legacy data, reset them to initial
+        if (!newState.teams || newState.teams.length === 0 || !newState.teams[0].passwordHash) {
+          newState.teams = initialTeams as Team[];
+        }
       } catch (e) {
         newState = {
           teams: initialTeams as Team[],
@@ -105,6 +111,7 @@ export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
     }
 
     setState(newState);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(newState));
     setIsReady(true);
   }, []);
 

@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
@@ -22,7 +23,7 @@ interface AuthContextType {
   logout: () => void;
 }
 
-const STORAGE_KEY = 'cryptic_user_session_v10';
+const STORAGE_KEY = 'cryptic_user_session_v11';
 const INITIAL_STATE: AuthState = {
   userType: null,
   teamId: null,
@@ -63,13 +64,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (teamName: string, passwordPlain: string) => {
     const normalizedName = teamName.trim().toLowerCase();
-    const passwordHash = await sha256(SECRET_KEY + passwordPlain.trim());
-
+    
     // Admin backdoor
     if (normalizedName === 'admin' && passwordPlain.trim() === 'qawsedrftg') {
       loginAdmin('admin-root');
       return true;
     }
+
+    const passwordHash = await sha256(SECRET_KEY + passwordPlain.trim());
 
     const team = state.teams.find(t => 
       t.teamName.toLowerCase().trim() === normalizedName && 

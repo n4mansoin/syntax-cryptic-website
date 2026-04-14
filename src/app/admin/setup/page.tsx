@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -19,12 +20,14 @@ export default function AdminSetupPage() {
   const handleResetDatabase = async () => {
     setLoading(true);
     try {
-      // Direct update through the sync engine
-      updateStore('levels', initialLevels as any);
-      updateStore('teams', initialTeams as any);
-      updateStore('hints', []);
-      updateStore('attempts', []);
-      updateStore('flags', []);
+      // Use the functional updater required by the RealtimeSyncEngine
+      updateStore(() => ({
+        levels: initialLevels as any,
+        teams: initialTeams as any,
+        hints: [],
+        attempts: [],
+        flags: [],
+      }));
       
       setDone(true);
       toast({ title: "System Reset", description: "All local data has been restored to factory defaults." });
