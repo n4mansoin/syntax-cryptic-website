@@ -45,13 +45,4 @@
     "penaltyUntil": null,
     "lastSolvedAt": null
   }
-  {
-    "id": "team-test123",
-    "teamName": "test123",
-    "password": "test",
-    "currentLevel": 1,
-    "flagCount": 0,
-    "penaltyUntil": null,
-    "lastSolvedAt": null
-  },
 ]
