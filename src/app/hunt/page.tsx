@@ -27,8 +27,12 @@ export default function HuntPage() {
   const [penaltyTimeLeft, setPenaltyTimeLeft] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!authLoading && !auth.teamId && !auth.adminId) {
-      router.push('/login');
+    if (!authLoading) {
+      if (auth.userType === 'admin') {
+        router.push('/admin/dashboard');
+      } else if (!auth.teamId) {
+        router.push('/login');
+      }
     }
   }, [auth, authLoading, router]);
 

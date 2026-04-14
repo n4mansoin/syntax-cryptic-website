@@ -34,6 +34,8 @@ export default function Home() {
   const handleEnter = () => {
     if (auth.userType === 'team') {
       router.push('/hunt');
+    } else if (auth.userType === 'admin') {
+      router.push('/admin/dashboard');
     } else {
       router.push('/login');
     }
