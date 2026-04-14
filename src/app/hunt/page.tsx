@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -100,7 +101,7 @@ export default function HuntPage() {
     setSubmitting(false);
   };
 
-  if (authLoading || !isReady) {
+  if (authLoading || !isReady || auth.userType === 'admin') {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />

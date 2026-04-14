@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -9,7 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import initialLevels from '@/data/levels.json';
 import initialTeams from '@/data/teams.json';
 import { useFirestore, useUser } from '@/firebase';
-import { collection, doc, writeBatch, setDoc, getDocs, query, where } from 'firebase/firestore';
+import { collection, doc, writeBatch, setDoc, getDocs } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
@@ -32,7 +33,7 @@ export default function AdminSetupPage() {
     
     setLoading(true);
     try {
-      // 1. Establish administrative identity in a separate write to bypass batch restrictions
+      // 1. Establish administrative identity first
       const adminRoleRef = doc(db, 'admin_roles', user.uid);
       await setDoc(adminRoleRef, { 
         username: 'admin', 
@@ -49,9 +50,7 @@ export default function AdminSetupPage() {
         batch.set(levelRef, level);
       });
 
-      // Reset Teams to Level 1 and Clear Penalties
-      // We search for existing team docs by name and reset them, or create new ones if they don't exist
-      // Since we can't easily query within a batch, we'll reset any existing teams we find in the system
+      // Reset all existing teams in Firestore to Level 1
       const teamsSnap = await getDocs(collection(db, 'teams'));
       teamsSnap.forEach((teamDoc) => {
         batch.update(teamDoc.ref, {
@@ -60,13 +59,6 @@ export default function AdminSetupPage() {
           penaltyUntil: null,
           lastSolvedAt: null
         });
-      });
-
-      // Also ensure the predefined teams exist in Firestore at Level 1
-      initialTeams.forEach((team: any) => {
-        // We use a deterministic path based on ID from teams.json if possible, 
-        // but since login creates UIDs, we focus on the existing ones above.
-        // For new teams in the JSON, they will be initialized on their first login.
       });
 
       await batch.commit();

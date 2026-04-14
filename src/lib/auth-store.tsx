@@ -29,7 +29,7 @@ interface AuthContextType {
   logout: () => void;
 }
 
-const STORAGE_KEY = 'cryptic_user_session_v16';
+const STORAGE_KEY = 'cryptic_user_session_v17';
 const INITIAL_STATE: AuthState = {
   userType: null,
   teamId: null,
@@ -76,20 +76,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         userCredential = await signInWithEmailAndPassword(firebaseAuth, email, password);
       } catch (err: any) {
         if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential' || err.code === 'auth/invalid-email') {
-          try {
-            userCredential = await createUserWithEmailAndPassword(firebaseAuth, email, password);
-          } catch (createErr: any) {
-            throw createErr;
-          }
+          userCredential = await createUserWithEmailAndPassword(firebaseAuth, email, password);
         } else {
           throw err;
         }
       }
 
       const teamId = userCredential.user.uid;
-      
       const teamRef = doc(db, 'teams', teamId);
       const teamSnap = await getDoc(teamRef);
+      
       if (!teamSnap.exists()) {
         await setDoc(teamRef, {
           teamName,
@@ -121,18 +117,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         userCredential = await signInWithEmailAndPassword(firebaseAuth, email, password);
       } catch (err: any) {
         if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
-          try {
-            userCredential = await createUserWithEmailAndPassword(firebaseAuth, email, password);
-          } catch (createErr: any) {
-            throw createErr;
-          }
+          userCredential = await createUserWithEmailAndPassword(firebaseAuth, email, password);
         } else {
           throw err;
         }
       }
 
       const adminId = userCredential.user.uid;
-      
       const roleRef = doc(db, 'admin_roles', adminId);
       const roleSnap = await getDoc(roleRef);
       
