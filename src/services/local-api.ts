@@ -33,10 +33,13 @@ export const localApi = {
     const normalizedInput = userInput.trim().toLowerCase();
     
     // Decrypt at runtime for validation
-    const correctAnswer = decryptAnswer(level.encryptedAnswer, level.salt).trim().toLowerCase();
+    const decryptedString = decryptAnswer(level.encryptedAnswer, level.salt);
     
-    // Strict comparison
-    const isCorrect = normalizedInput === correctAnswer;
+    // Support multi-answer delimited by |
+    const possibleAnswers = decryptedString.split('|').map(a => a.trim().toLowerCase());
+    
+    // Check if input matches any valid decryption
+    const isCorrect = possibleAnswers.includes(normalizedInput);
 
     // 4. Update Store (Atomic update)
     updateStore(prev => {

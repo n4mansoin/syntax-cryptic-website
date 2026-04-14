@@ -15,16 +15,23 @@ export function encryptAnswer(answer: string, salt: string): string {
 
 /**
  * Decrypts a stored ciphertext and extracts the original answer.
+ * Now handles empty/null inputs gracefully.
  */
 export function decryptAnswer(encryptedAnswer: string, salt: string): string {
+  if (!encryptedAnswer) return '';
   try {
     const bytes = CryptoJS.AES.decrypt(encryptedAnswer, SECRET_KEY);
     const decrypted = bytes.toString(CryptoJS.enc.Utf8);
-    if (!decrypted) return '';
+    
+    if (!decrypted) {
+      // Fallback for non-encrypted legacy data during development
+      return encryptedAnswer;
+    }
+    
     // Remove the salt prefix
-    return decrypted.slice(salt.length);
+    return decrypted.startsWith(salt) ? decrypted.slice(salt.length) : decrypted;
   } catch (error) {
-    console.error('Decryption failed:', error);
-    return '';
+    // Return original if decryption fails (safeguard for development state)
+    return encryptedAnswer;
   }
 }
