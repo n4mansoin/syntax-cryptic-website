@@ -3,6 +3,7 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
 import { AuthProvider } from '@/lib/auth-store';
 import { RealtimeSyncEngine } from '@/lib/local-store';
+import { Analytics } from "@vercel/analytics/next"
 
 export const metadata: Metadata = {
   title: 'INTRA SYNTAX CRYPTIC',
@@ -32,6 +33,7 @@ export default function RootLayout({
           <AuthProvider>
             {children}
             <Toaster />
+            <Analytics />
           </AuthProvider>
         </RealtimeSyncEngine>
       </body>
