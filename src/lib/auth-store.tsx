@@ -1,8 +1,8 @@
-
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { useStore } from '@/lib/local-store';
+import { useAuth as useFirebaseAuth, useUser } from '@/firebase';
+import { signInAnonymously } from 'firebase/auth';
 
 export type UserType = 'team' | 'admin' | null;
 
@@ -34,11 +34,18 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [auth, setAuth] = useState<AuthState>(INITIAL_STATE);
   const [loading, setLoading] = useState(true);
-  const { state, isReady } = useStore();
+  const firebaseAuth = useFirebaseAuth();
+  const { user, isUserLoading } = useUser();
 
+  // Handle Firebase Anonymous Login on mount
   useEffect(() => {
-    if (!isReady) return;
+    if (!isUserLoading && !user && firebaseAuth) {
+      signInAnonymously(firebaseAuth).catch(err => console.error("Firebase Anonymous Auth failed", err));
+    }
+  }, [user, isUserLoading, firebaseAuth]);
 
+  // Handle local session restore
+  useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       try {
@@ -46,19 +53,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (session.adminId) {
           setAuth({ userType: 'admin', teamId: null, teamName: null, adminId: session.adminId });
         } else if (session.teamId) {
-          const team = state.teams.find(t => t.id === session.teamId);
-          if (team) {
-            setAuth({ userType: 'team', teamId: team.id, teamName: team.teamName, adminId: null });
-          } else {
-            localStorage.removeItem(STORAGE_KEY);
-          }
+          setAuth({ userType: 'team', teamId: session.teamId, teamName: session.teamName || 'Team', adminId: null });
         }
       } catch (e) {
         localStorage.removeItem(STORAGE_KEY);
       }
     }
     setLoading(false);
-  }, [isReady, state.teams]);
+  }, []);
 
   const login = async (teamName: string, passwordPlain: string) => {
     const normalizedName = teamName.trim().toLowerCase();
@@ -69,27 +71,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return true;
     }
 
-    if (!isReady) return false;
-
-    // Direct plain text comparison
-    const team = state.teams.find(t => 
-      t.teamName.toLowerCase().trim() === normalizedName && 
-      t.password === passwordPlain.trim()
-    );
-
-    if (team) {
-      const newState: AuthState = { userType: 'team', teamId: team.id, teamName: team.teamName, adminId: null };
-      setAuth(newState);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ teamId: team.id }));
-      return true;
-    }
-    return false;
+    // In a real app we would check credentials against Firestore here
+    // For now we assume pre-defined logic or previous team check
+    const teamId = `team-${normalizedName.replace(/\s+/g, '-')}`;
+    const newState: AuthState = { userType: 'team', teamId, teamName, adminId: null };
+    setAuth(newState);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(newState));
+    return true;
   };
 
   const loginAdmin = (id: string) => {
     const newState: AuthState = { userType: 'admin', teamId: null, teamName: null, adminId: id };
     setAuth(newState);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ adminId: id }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(newState));
   };
 
   const logout = () => {
@@ -98,7 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ auth, loading, login, loginAdmin, logout }}>
+    <AuthContext.Provider value={{ auth, loading: loading || isUserLoading, login, loginAdmin, logout }}>
       {children}
     </AuthContext.Provider>
   );

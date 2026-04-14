@@ -1,8 +1,8 @@
 import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
-import { AuthProvider } from '@/lib/auth-store';
-import { RealtimeSyncEngine } from '@/lib/local-store';
+import { AuthProvider } from '@/lib/auth-store.tsx';
+import { RealtimeSyncEngine } from '@/lib/local-store.tsx';
 import { Analytics } from "@vercel/analytics/next"
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 
@@ -31,13 +31,13 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <FirebaseClientProvider>
-          <RealtimeSyncEngine>
-            <AuthProvider>
+          <AuthProvider>
+            <RealtimeSyncEngine>
               {children}
               <Toaster />
               <Analytics />
-            </AuthProvider>
-          </RealtimeSyncEngine>
+            </RealtimeSyncEngine>
+          </AuthProvider>
         </FirebaseClientProvider>
       </body>
     </html>

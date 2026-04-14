@@ -1,8 +1,9 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
+import { collection, query, orderBy, onSnapshot, collectionGroup, where } from 'firebase/firestore';
+import { useAuth } from '@/lib/auth-store';
 
 export interface Team {
   id: string;
@@ -64,6 +65,8 @@ const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
 export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
   const firestore = useFirestore();
+  const { auth } = useAuth();
+  const { user } = useUser();
   const [state, setState] = useState<StoreState>({
     teams: [],
     levels: [],
@@ -72,47 +75,58 @@ export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
     flags: [],
   });
 
-  // Fetch Levels (Ordered)
+  // Fetch Levels (Public for signed-in users)
   const levelsQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !user) return null;
     return query(collection(firestore, 'levels'), orderBy('order', 'asc'));
-  }, [firestore]);
+  }, [firestore, user]);
   const { data: levels, isLoading: levelsLoading } = useCollection<Level>(levelsQuery);
 
-  // Fetch Teams
+  // Fetch Teams (Public for signed-in users)
   const teamsQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !user) return null;
     return collection(firestore, 'teams');
-  }, [firestore]);
+  }, [firestore, user]);
   const { data: teams, isLoading: teamsLoading } = useCollection<Team>(teamsQuery);
 
-  // Fetch Flags
+  // Fetch Flags (Admin only)
   const flagsQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || auth.userType !== 'admin') return null;
     return collection(firestore, 'flags');
-  }, [firestore]);
+  }, [firestore, auth.userType]);
   const { data: flags, isLoading: flagsLoading } = useCollection<Flag>(flagsQuery);
 
-  // Hints (We listen for all released hints globally for now)
+  // Fetch Hints (Released ones or all for admin)
   useEffect(() => {
-    if (!firestore) return;
-    const unsub = onSnapshot(collection(firestore, 'hints'), (snapshot) => {
+    if (!firestore || !user) return;
+    
+    let hintQuery;
+    if (auth.userType === 'admin') {
+      hintQuery = collectionGroup(firestore, 'hints');
+    } else {
+      hintQuery = query(collectionGroup(firestore, 'hints'), where('isReleased', '==', true));
+    }
+
+    const unsub = onSnapshot(hintQuery, (snapshot) => {
       const hintData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Hint));
       setState(prev => ({ ...prev, hints: hintData }));
-    });
-    return () => unsub();
-  }, [firestore]);
+    }, (err) => console.warn("Hints listener error", err));
 
-  // Attempts (For the current team, this would be handled contextually in pages, 
-  // but for the global admin state we listen for updates)
+    return () => unsub();
+  }, [firestore, user, auth.userType]);
+
+  // Fetch Attempts (All for admin, scoped handled elsewhere for teams)
   useEffect(() => {
-    if (!firestore) return;
-    const unsub = onSnapshot(collection(firestore, 'attempts'), (snapshot) => {
+    if (!firestore || auth.userType !== 'admin') return;
+    
+    const attemptsQuery = collectionGroup(firestore, 'attempts');
+    const unsub = onSnapshot(attemptsQuery, (snapshot) => {
       const attemptData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Attempt));
       setState(prev => ({ ...prev, attempts: attemptData }));
-    });
+    }, (err) => console.warn("Attempts listener error", err));
+
     return () => unsub();
-  }, [firestore]);
+  }, [firestore, auth.userType]);
 
   useEffect(() => {
     setState(prev => ({
@@ -123,12 +137,10 @@ export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
     }));
   }, [levels, teams, flags]);
 
-  const isReady = !levelsLoading && !teamsLoading && !flagsLoading;
+  const isReady = !!user && !levelsLoading && !teamsLoading;
 
-  // Since we are now cloud-backed, we don't need a local updater function for global state.
-  // Mutations are handled directly via Firestore in local-api.ts.
   const updateStore = useCallback(() => {
-    console.warn('updateStore called on cloud-backed RealtimeSyncEngine. Mutations should occur via Firestore directly.');
+    console.warn('Mutations occur via Firestore directly.');
   }, []);
 
   return (
