@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
@@ -27,7 +28,7 @@ interface AuthContextType {
   logout: () => void;
 }
 
-const STORAGE_KEY = 'intra_syntax_global_auth_v7';
+const STORAGE_KEY = 'intra_syntax_global_auth_final_v1';
 const INITIAL_STATE: AuthState = {
   userType: null,
   teamId: null,

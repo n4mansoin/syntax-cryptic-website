@@ -1,3 +1,4 @@
+
 'use client';
 
 import { ATTEMPT_LIMIT_PER_MINUTE } from '@/utils/constants';
@@ -16,7 +17,6 @@ export const localApi = {
   ) {
     const now = new Date();
     
-    // 1. Fetch source-of-truth data directly from Firestore for verification
     const teamRef = doc(db, 'teams', teamId);
     const levelRef = doc(db, 'levels', levelId);
     
@@ -31,12 +31,10 @@ export const localApi = {
     const team = teamSnap.data();
     const level = levelSnap.data();
 
-    // 2. Check Penalty
     if (team.penaltyUntil && new Date(team.penaltyUntil) > now) {
       return { success: false, message: "Terminal Signal Suppressed." };
     }
 
-    // 3. Rate Limiting
     const oneMinuteAgo = new Date(now.getTime() - 60000);
     const recentAttempts = state.attempts.filter(a => a.teamId === teamId && new Date(a.timestamp) > oneMinuteAgo);
 
@@ -45,7 +43,6 @@ export const localApi = {
       return { success: false, message: "Protocol Violation: Signal Flood Detected.", flagged: true };
     }
 
-    // 4. Verification Logic (Source of Truth Comparison)
     const normalizedInput = userInput.trim().toLowerCase();
     const validAnswers = (level.correctAnswer || "")
       .toLowerCase()
@@ -55,7 +52,6 @@ export const localApi = {
 
     const isCorrect = validAnswers.includes(normalizedInput);
 
-    // 5. Cloud Mutation
     const attemptsCol = collection(db, 'teams', teamId, 'attempts');
     const attemptData = {
       teamId,

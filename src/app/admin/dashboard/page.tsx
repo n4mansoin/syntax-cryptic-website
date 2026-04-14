@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -122,7 +123,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (isMounted && !authLoading) {
       if (auth.userType !== 'admin') {
-        router.push('/login');
+        router.push('/admin');
       }
     }
   }, [auth, authLoading, router, isMounted]);
@@ -242,6 +243,7 @@ export default function AdminDashboard() {
 
   if (auth.userType !== 'admin') return null;
 
+  const sortedTeams = [...state.teams].sort((a,b) => b.currentLevel - a.currentLevel);
   const flaggedTeams = state.teams.filter(t => t.flagCount > 0 || (t.penaltyUntil && new Date(t.penaltyUntil) > new Date()));
 
   return (
@@ -254,7 +256,7 @@ export default function AdminDashboard() {
             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
             <h1 className="text-3xl font-headline font-bold text-white tracking-tighter uppercase">Operations Control</h1>
           </div>
-          <p className="text-muted-foreground text-[10px] font-mono uppercase tracking-widest opacity-50">Identity: ROOT_ADMIN // Terminal ID: {auth.adminId}</p>
+          <p className="text-muted-foreground text-[10px] font-mono uppercase tracking-widest opacity-50">Identity: ROOT_ADMIN // Node ID: {auth.adminId?.slice(-6)}</p>
         </div>
       </div>
 
@@ -267,7 +269,7 @@ export default function AdminDashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            {[...state.teams].sort((a,b) => b.currentLevel - a.currentLevel).map((team, i) => (
+            {sortedTeams.map((team, i) => (
               <div key={team.id} className="flex items-center justify-between p-4 bg-white/[0.02] border border-white/5 rounded-xl group hover:border-primary/20 transition-all">
                 <div className="flex items-center gap-4">
                   <span className="font-mono text-xs text-white/20 group-hover:text-primary/50">{String(i + 1).padStart(2, '0')}</span>
@@ -334,7 +336,7 @@ export default function AdminDashboard() {
               <select 
                 value={selectedLevelId} 
                 onChange={(e) => setSelectedLevelId(e.target.value)}
-                className="w-full bg-background border border-white/5 p-2 rounded text-xs font-mono text-white"
+                className="w-full bg-background border border-white/5 p-2 rounded text-xs font-mono text-white outline-none"
               >
                 <option value="">Select Level</option>
                 {state.levels.map(l => <option key={l.id} value={l.id}>Level {l.order}</option>)}
@@ -414,7 +416,7 @@ export default function AdminDashboard() {
               <TableHeader>
                 <TableRow className="border-white/5 hover:bg-transparent">
                   <TableHead className="text-[10px] uppercase tracking-widest text-white/40">Level Signal</TableHead>
-                  <TableHead className="text-right text-[10px] uppercase tracking-widest text-white/40">Total Requests</TableHead>
+                  <TableHead className="text-right text-[10px] uppercase tracking-widest text-white/40">Total Attempts</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -423,7 +425,7 @@ export default function AdminDashboard() {
                     <TableCell className="font-mono text-xs text-white">LVL_0{level.order}</TableCell>
                     <TableCell className="text-right">
                       <Badge variant="outline" className="font-mono border-white/10 text-primary">
-                        {getRequestsForLevel(level.id)} REQ
+                        {getRequestsForLevel(level.id)} ATTEMPT
                       </Badge>
                     </TableCell>
                   </TableRow>
