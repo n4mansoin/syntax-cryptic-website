@@ -28,7 +28,7 @@ interface AuthContextType {
   logout: () => void;
 }
 
-const STORAGE_KEY = 'cryptic_user_session_v15';
+const STORAGE_KEY = 'cryptic_user_session_v16';
 const INITIAL_STATE: AuthState = {
   userType: null,
   teamId: null,
@@ -57,7 +57,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(false);
   }, []);
 
-  // Ensure every visitor has an anonymous session if not logged in
   useEffect(() => {
     if (!isUserLoading && !user && firebaseAuth) {
       signInAnonymously(firebaseAuth).catch(err => console.error("Silent sign-in failed", err));
@@ -65,7 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user, isUserLoading, firebaseAuth]);
 
   const login = async (teamName: string, passwordPlain: string) => {
-    if (!firebaseAuth) return false;
+    if (!firebaseAuth || !db) return false;
     const normalizedName = teamName.trim().toLowerCase();
     const email = `${normalizedName}@intra-syntax.com`;
     const password = passwordPlain.trim();
@@ -75,13 +74,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         userCredential = await signInWithEmailAndPassword(firebaseAuth, email, password);
       } catch (err: any) {
-        if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
+        if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential' || err.code === 'auth/invalid-email') {
           try {
             userCredential = await createUserWithEmailAndPassword(firebaseAuth, email, password);
           } catch (createErr: any) {
-            if (createErr.code === 'auth/email-already-in-use') {
-              throw err; 
-            }
             throw createErr;
           }
         } else {
@@ -90,6 +86,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const teamId = userCredential.user.uid;
+      
+      // Ensure team document exists with the UID as the ID
+      const teamRef = doc(db, 'teams', teamId);
+      const teamSnap = await getDoc(teamRef);
+      if (!teamSnap.exists()) {
+        await setDoc(teamRef, {
+          teamName,
+          currentLevel: 1,
+          flagCount: 0,
+          penaltyUntil: null,
+          lastSolvedAt: null
+        });
+      }
+
       const newState: AuthState = { userType: 'team', teamId, teamName, adminId: null };
       setAuth(newState);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(newState));
@@ -114,9 +124,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           try {
             userCredential = await createUserWithEmailAndPassword(firebaseAuth, email, password);
           } catch (createErr: any) {
-            if (createErr.code === 'auth/email-already-in-use') {
-              throw err;
-            }
             throw createErr;
           }
         } else {

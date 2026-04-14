@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -8,7 +7,6 @@ import { Navbar } from '@/components/Navbar';
 import { Database, Loader2, CheckCircle2, RotateCcw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import initialLevels from '@/data/levels.json';
-import initialTeams from '@/data/teams.json';
 import { useFirestore, useUser } from '@/firebase';
 import { collection, doc, writeBatch, setDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -33,8 +31,7 @@ export default function AdminSetupPage() {
     
     setLoading(true);
     try {
-      // 1. BOOTSTRAP: Explicitly register this UID as an admin first.
-      // This is a separate write to ensure the document exists before the batch runs.
+      // 1. Establish administrative identity in a separate write
       const adminRoleRef = doc(db, 'admin_roles', user.uid);
       await setDoc(adminRoleRef, { 
         username: 'admin', 
@@ -42,20 +39,12 @@ export default function AdminSetupPage() {
         bootstrappedAt: new Date().toISOString()
       }, { merge: true });
 
-      // 2. DATA SYNC: Now that we are an admin, run the batch for levels and teams.
+      // 2. Synchronize levels (teams are now handled dynamically on login)
       const batch = writeBatch(db);
 
-      // Sync Levels
       initialLevels.forEach((level: any) => {
         const levelRef = doc(db, 'levels', level.id);
         batch.set(levelRef, level);
-      });
-
-      // Sync Teams
-      initialTeams.forEach((team: any) => {
-        const teamRef = doc(db, 'teams', team.id);
-        const { password, ...publicData } = team;
-        batch.set(teamRef, publicData);
       });
 
       await batch.commit();
@@ -63,7 +52,6 @@ export default function AdminSetupPage() {
       setDone(true);
       toast({ title: "Cloud Node Active", description: "Global synchronization complete." });
     } catch (error: any) {
-      // Catch and emit specific Firestore permission errors for debugging
       const permissionError = new FirestorePermissionError({
         path: 'multiple/batch',
         operation: 'write'
@@ -73,7 +61,7 @@ export default function AdminSetupPage() {
       toast({ 
         variant: "destructive", 
         title: "Setup Failed", 
-        description: error.message || "Insufficient permissions to modify cloud collections." 
+        description: error.message || "Insufficient permissions." 
       });
     } finally {
       setLoading(false);

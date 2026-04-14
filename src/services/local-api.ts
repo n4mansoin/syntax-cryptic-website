@@ -2,7 +2,7 @@
 
 import { ATTEMPT_LIMIT_PER_MINUTE } from '@/utils/constants';
 import { StoreState } from '@/lib/local-store';
-import { doc, setDoc, updateDoc, collection, Firestore } from 'firebase/firestore';
+import { doc, setDoc, updateDoc, collection, Firestore, getDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
@@ -14,17 +14,29 @@ export const localApi = {
     userInput: string, 
     state: StoreState
   ) {
-    const team = state.teams.find(t => t.id === teamId);
-    if (!team) return { success: false, message: "Identity mismatch." };
-
     const now = new Date();
+    
+    // 1. Fetch source-of-truth data directly from Firestore for verification
+    const teamRef = doc(db, 'teams', teamId);
+    const levelRef = doc(db, 'levels', levelId);
+    
+    const [teamSnap, levelSnap] = await Promise.all([
+      getDoc(teamRef),
+      getDoc(levelRef)
+    ]);
 
-    // 1. Check Penalty
+    if (!teamSnap.exists()) return { success: false, message: "Identity mismatch. Please re-login." };
+    if (!levelSnap.exists()) return { success: false, message: "Level data synchronization failed." };
+
+    const team = teamSnap.data();
+    const level = levelSnap.data();
+
+    // 2. Check Penalty
     if (team.penaltyUntil && new Date(team.penaltyUntil) > now) {
       return { success: false, message: "Terminal Signal Suppressed." };
     }
 
-    // 2. Rate Limiting
+    // 3. Rate Limiting (Using state for historical attempts is fine)
     const oneMinuteAgo = new Date(now.getTime() - 60000);
     const recentAttempts = state.attempts.filter(a => a.teamId === teamId && new Date(a.timestamp) > oneMinuteAgo);
 
@@ -33,22 +45,18 @@ export const localApi = {
       return { success: false, message: "Protocol Violation: Signal Flood Detected.", flagged: true };
     }
 
-    // 3. Verification
-    const level = state.levels.find(l => l.id === levelId);
-    if (!level) return { success: false, message: "Signal synchronization failed." };
-
+    // 4. Verification Logic
     const normalizedInput = userInput.trim().toLowerCase();
-    
     const validAnswers = (level.correctAnswer || "")
       .toLowerCase()
       .split('|')
-      .map(a => a.trim())
-      .filter(a => a.length > 0);
+      .map((a: string) => a.trim())
+      .filter((a: string) => a.length > 0);
 
     const isCorrect = validAnswers.includes(normalizedInput);
 
-    // 4. Cloud Mutation
-    const attemptRef = doc(collection(db, 'attempts'));
+    // 5. Cloud Mutation - Correct sub-collection path
+    const attemptRef = doc(collection(db, 'teams', teamId, 'attempts'));
     const attemptData = {
       id: attemptRef.id,
       teamId,
@@ -66,9 +74,8 @@ export const localApi = {
     });
 
     if (isCorrect) {
-      const teamRef = doc(db, 'teams', teamId);
       updateDoc(teamRef, {
-        currentLevel: team.currentLevel + 1,
+        currentLevel: (team.currentLevel || 1) + 1,
         lastSolvedAt: now.toISOString(),
         flagCount: 0 
       }).catch(err => {
