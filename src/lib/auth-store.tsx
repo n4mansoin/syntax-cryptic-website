@@ -3,8 +3,6 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useStore } from '@/lib/local-store';
-import { sha256 } from '@/utils/hash';
-import { SECRET_KEY } from '@/utils/constants';
 
 export type UserType = 'team' | 'admin' | null;
 
@@ -23,7 +21,7 @@ interface AuthContextType {
   logout: () => void;
 }
 
-const STORAGE_KEY = 'cryptic_user_session_v11';
+const STORAGE_KEY = 'cryptic_user_session_v13';
 const INITIAL_STATE: AuthState = {
   userType: null,
   teamId: null,
@@ -71,11 +69,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return true;
     }
 
-    const passwordHash = await sha256(SECRET_KEY + passwordPlain.trim());
-
+    // Direct plain text comparison as requested
     const team = state.teams.find(t => 
       t.teamName.toLowerCase().trim() === normalizedName && 
-      t.passwordHash === passwordHash
+      t.password === passwordPlain.trim()
     );
 
     if (team) {

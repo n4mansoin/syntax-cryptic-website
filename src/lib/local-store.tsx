@@ -8,7 +8,7 @@ import initialTeams from '@/data/teams.json';
 export interface Team {
   id: string;
   teamName: string;
-  passwordHash: string;
+  password: string;
   currentLevel: number;
   flagCount: number;
   penaltyUntil: string | null;
@@ -63,8 +63,8 @@ interface StoreContextType {
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
-const STORAGE_KEY = 'cryptic_store_v12'; // Incremented version for forced migration
-const SYNC_CHANNEL_NAME = 'cryptic-sync-v12';
+const STORAGE_KEY = 'cryptic_store_v13'; 
+const SYNC_CHANNEL_NAME = 'cryptic-sync-v13';
 
 export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
   const [state, setState] = useState<StoreState>({
@@ -84,11 +84,10 @@ export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
     if (stored) {
       try {
         newState = JSON.parse(stored);
-        // Always sync levels to ensure latest questions
         newState.levels = initialLevels as Level[];
         
-        // If teams look empty or like legacy data, reset them to initial
-        if (!newState.teams || newState.teams.length === 0 || !newState.teams[0].passwordHash) {
+        // Ensure we use the plain text password structure
+        if (!newState.teams || newState.teams.length === 0 || !newState.teams[0].password) {
           newState.teams = initialTeams as Team[];
         }
       } catch (e) {
