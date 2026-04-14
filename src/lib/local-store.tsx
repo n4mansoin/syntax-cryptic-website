@@ -19,7 +19,7 @@ export interface Level {
   id: string;
   order: number;
   question: string;
-  answerHashes: string[];
+  encryptedAnswer: string;
   salt: string;
 }
 
@@ -63,8 +63,8 @@ interface StoreContextType {
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
-const STORAGE_KEY = 'cryptic_store_v13'; 
-const SYNC_CHANNEL_NAME = 'cryptic-sync-v13';
+const STORAGE_KEY = 'cryptic_store_v14'; 
+const SYNC_CHANNEL_NAME = 'cryptic-sync-v14';
 
 export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
   const [state, setState] = useState<StoreState>({
@@ -86,8 +86,7 @@ export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
         newState = JSON.parse(stored);
         newState.levels = initialLevels as Level[];
         
-        // Ensure we use the plain text password structure
-        if (!newState.teams || newState.teams.length === 0 || !newState.teams[0].password) {
+        if (!newState.teams || newState.teams.length === 0) {
           newState.teams = initialTeams as Team[];
         }
       } catch (e) {

@@ -1,8 +1,8 @@
 
 'use client';
 
-import { normalizeAnswer, generateAnswerHash } from '@/utils/hash';
-import { SECRET_KEY, ATTEMPT_LIMIT_PER_MINUTE, FLAGS_UNTIL_PENALTY, PENALTY_DURATION_MINUTES } from '@/utils/constants';
+import { decryptAnswer } from '@/utils/crypto';
+import { ATTEMPT_LIMIT_PER_MINUTE, FLAGS_UNTIL_PENALTY, PENALTY_DURATION_MINUTES } from '@/utils/constants';
 import { StoreState, Attempt, Flag } from '@/lib/local-store';
 
 export const localApi = {
@@ -26,12 +26,16 @@ export const localApi = {
       return { success: false, message: "Protocol Violation: Signal Flood Detected.", flagged: true };
     }
 
-    // 3. Verification
+    // 3. Decryption & Verification
     const level = state.levels.find(l => l.id === levelId);
     if (!level) return { success: false, message: "Signal synchronization failed." };
 
-    const inputHash = await generateAnswerHash(userInput, level.salt, SECRET_KEY);
-    const isCorrect = level.answerHashes.includes(inputHash);
+    const normalizedInput = userInput.toLowerCase().trim();
+    const correctAnswer = decryptAnswer(level.encryptedAnswer, level.salt);
+    
+    // In a real scenario, the decryption would only happen in the service.
+    // We compare normalized strings.
+    const isCorrect = normalizedInput === correctAnswer.toLowerCase().trim();
 
     // 4. Update Store (Atomic update)
     updateStore(prev => {
@@ -53,7 +57,7 @@ export const localApi = {
           ...t,
           currentLevel: t.currentLevel + 1,
           lastSolvedAt: now.toISOString(),
-          flagCount: 0 // Reset flags on correct solve
+          flagCount: 0 
         } : t);
       }
 
@@ -70,7 +74,6 @@ export const localApi = {
     updateStore(prev => {
       const next = { ...prev };
       
-      // Add Flag
       const newFlag: Flag = {
         id: Math.random().toString(36).substr(2, 9),
         teamId,
@@ -79,7 +82,6 @@ export const localApi = {
       };
       next.flags = [...next.flags, newFlag];
 
-      // Update Team Flags/Penalty
       next.teams = next.teams.map(t => {
         if (t.id !== teamId) return t;
         const newFlagCount = t.flagCount + 1;
