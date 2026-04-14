@@ -36,14 +36,11 @@ export const localApi = {
     const decryptedString = decryptAnswer(level.encryptedAnswer || '', level.salt || '');
     
     if (!decryptedString) {
-      return { success: false, message: "Security Layer Error. Contact Admin." };
+      return { success: false, message: "Security Layer Error. Reset System via Admin." };
     }
 
-    // Support multi-answer delimited by |
-    const possibleAnswers = decryptedString.split('|').map(a => a.trim().toLowerCase());
-    
-    // Check if input matches
-    const isCorrect = possibleAnswers.includes(normalizedInput);
+    // Check if input matches (case-insensitive and trimmed)
+    const isCorrect = normalizedInput === decryptedString.toLowerCase().trim();
 
     // 4. Update Store (Atomic update)
     updateStore(prev => {
