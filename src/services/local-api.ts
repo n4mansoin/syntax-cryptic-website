@@ -33,19 +33,22 @@ export const localApi = {
     const normalizedInput = userInput.trim().toLowerCase();
     
     // Decrypt at runtime for validation
-    const decryptedString = decryptAnswer(level.encryptedAnswer, level.salt);
+    const decryptedString = decryptAnswer(level.encryptedAnswer || '', level.salt || '');
     
+    if (!decryptedString) {
+      return { success: false, message: "Security Layer Error. Contact Admin." };
+    }
+
     // Support multi-answer delimited by |
     const possibleAnswers = decryptedString.split('|').map(a => a.trim().toLowerCase());
     
-    // Check if input matches any valid decryption
+    // Check if input matches
     const isCorrect = possibleAnswers.includes(normalizedInput);
 
     // 4. Update Store (Atomic update)
     updateStore(prev => {
       const next = { ...prev };
       
-      // Log attempt
       const newAttempt: Attempt = {
         id: Math.random().toString(36).substr(2, 9),
         teamId,
@@ -55,7 +58,6 @@ export const localApi = {
       };
       next.attempts = [...next.attempts, newAttempt];
 
-      // Update Team Progress
       if (isCorrect) {
         next.teams = next.teams.map(t => t.id === teamId ? {
           ...t,

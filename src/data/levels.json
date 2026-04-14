@@ -4,35 +4,35 @@
     "id": "lvl1",
     "order": 1,
     "question": "лёњЈмёѕЈЪэњіэњћЕдээ",
-    "encryptedAnswer": "U2FsdGVkX18Kq6WvW7G/0M9p/y/W7G/0M9p/y/W7G/0M=",
+    "answer": "internet",
     "salt": "n7k2p"
   },
   {
     "id": "lvl2",
     "order": 2,
     "question": "25/8/11/17/26/ /26/23/10/25/1/14",
-    "encryptedAnswer": "U2FsdGVkX19yP6m7G/0M9p/y/W7G/0M9p/y/W7G/0M=",
+    "answer": "hexadecimal",
     "salt": "m8q3r"
   },
   {
     "id": "lvl3",
     "order": 3,
     "question": "CuuqRR1R",
-    "encryptedAnswer": "U2FsdGVkX1+vP6m7G/0M9p/y/W7G/0M9p/y/W7G/0M=",
+    "answer": "INTRA SYNTAX 2026@DPSI",
     "salt": "l9s4t"
   },
   {
     "id": "lvl4",
     "order": 4,
     "question": "ẢÂĀÁĂ + ÂẢÂÁĀÁÁÂ ÃẢA̽ĀA̦A̮ẢÀÁ\n\nQdCvYRHs",
-    "encryptedAnswer": "U2FsdGVkX1+yP6m7G/0M9p/y/W7G/0M9p/y/W7G/0M=",
+    "answer": "x86",
     "salt": "k0u5v"
   },
   {
     "id": "lvl5",
     "order": 5,
     "question": "Va cvkryngrq ernyzf jurer pbhagyrff oybpxf ner fgnpxrq hc uvtu, Guvf fbhy jnaqref jbeyqf jurer jvyq vzntvangvba ehaf fb serr. Ab fgbar abe jbbq vf rire sbervta gb gurve phevbhf rlr, Sbe va gur ynaq bs raqyrff ohvyqvat naq cynl, gurl ubyq gur xrl. Jub ner gurl?\n\nOR\n\nHTSOH BSBSBSCAN EOTDC4NULHT",
-    "encryptedAnswer": "U2FsdGVkX18yP6m7G/0M9p/y/W7G/0M9p/y/W7G/0M=",
+    "answer": "blockchain",
     "salt": "j1v6w"
   }
 ]
