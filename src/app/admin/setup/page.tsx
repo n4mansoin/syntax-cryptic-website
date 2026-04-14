@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -9,7 +10,9 @@ import { useToast } from '@/hooks/use-toast';
 import initialLevels from '@/data/levels.json';
 import initialTeams from '@/data/teams.json';
 import { useFirestore, useUser } from '@/firebase';
-import { collection, doc, writeBatch } from 'firebase/firestore';
+import { collection, doc, writeBatch, setDoc } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 export default function AdminSetupPage() {
   const db = useFirestore();
@@ -20,38 +23,58 @@ export default function AdminSetupPage() {
 
   const handleResetDatabase = async () => {
     if (!db || !user) {
-      toast({ variant: "destructive", title: "Setup Failed", description: "You must be signed in to perform synchronization." });
+      toast({ 
+        variant: "destructive", 
+        title: "Setup Failed", 
+        description: "Terminal identity missing. Please ensure you are logged in." 
+      });
       return;
     }
     
     setLoading(true);
     try {
+      // 1. BOOTSTRAP: Explicitly register this UID as an admin first.
+      // This is a separate write to ensure the document exists before the batch runs.
+      const adminRoleRef = doc(db, 'admin_roles', user.uid);
+      await setDoc(adminRoleRef, { 
+        username: 'admin', 
+        role: 'admin',
+        bootstrappedAt: new Date().toISOString()
+      }, { merge: true });
+
+      // 2. DATA SYNC: Now that we are an admin, run the batch for levels and teams.
       const batch = writeBatch(db);
 
-      // 1. Sync Levels
+      // Sync Levels
       initialLevels.forEach((level: any) => {
         const levelRef = doc(db, 'levels', level.id);
         batch.set(levelRef, level);
       });
 
-      // 2. Sync Teams
+      // Sync Teams
       initialTeams.forEach((team: any) => {
         const teamRef = doc(db, 'teams', team.id);
         const { password, ...publicData } = team;
         batch.set(teamRef, publicData);
       });
 
-      // 3. Ensure current user is an admin in Firestore
-      const adminRoleRef = doc(db, 'admin_roles', user.uid);
-      batch.set(adminRoleRef, { username: 'admin', role: 'admin' }, { merge: true });
-
       await batch.commit();
       
       setDone(true);
-      toast({ title: "Cloud Synchronization Complete", description: "Production Firestore updated successfully." });
+      toast({ title: "Cloud Node Active", description: "Global synchronization complete." });
     } catch (error: any) {
-      console.error(error);
-      toast({ variant: "destructive", title: "Setup Failed", description: "Insufficient permissions or cloud connection error." });
+      // Catch and emit specific Firestore permission errors for debugging
+      const permissionError = new FirestorePermissionError({
+        path: 'multiple/batch',
+        operation: 'write'
+      });
+      errorEmitter.emit('permission-error', permissionError);
+      
+      toast({ 
+        variant: "destructive", 
+        title: "Setup Failed", 
+        description: error.message || "Insufficient permissions to modify cloud collections." 
+      });
     } finally {
       setLoading(false);
     }
@@ -65,26 +88,28 @@ export default function AdminSetupPage() {
           <div className="mx-auto w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
             <Database className="w-6 h-6 text-primary" />
           </div>
-          <CardTitle>Cloud Initialization</CardTitle>
-          <CardDescription>Sync production database with current level and team data</CardDescription>
+          <CardTitle className="text-xl font-headline font-bold uppercase tracking-tight text-white">Cloud Initialization</CardTitle>
+          <CardDescription className="text-[10px] font-mono uppercase opacity-50">Sync production node with core protocols</CardDescription>
         </CardHeader>
         <CardContent>
           {done ? (
             <div className="flex flex-col items-center gap-4 py-4">
               <CheckCircle2 className="w-12 h-12 text-green-500 animate-scale-up" />
-              <p className="text-sm text-center text-muted-foreground font-mono uppercase">Cloud Node Active // Sync Persistent</p>
-              <Button onClick={() => window.location.href = '/hunt'} className="w-full">ENTER TERMINAL</Button>
+              <p className="text-sm text-center text-muted-foreground font-mono uppercase">Sync Persistent // Node Active</p>
+              <Button onClick={() => window.location.href = '/admin/dashboard'} className="w-full font-bold uppercase tracking-widest">ENTER DASHBOARD</Button>
             </div>
           ) : (
             <div className="space-y-4">
-              <p className="text-xs text-muted-foreground text-center font-mono uppercase tracking-tighter">Warning: This will overwrite global cloud data for all participants.</p>
+              <p className="text-[9px] text-muted-foreground text-center font-mono uppercase tracking-tighter bg-destructive/5 p-3 rounded border border-destructive/10">
+                Warning: This operation will overwrite global cloud data for all participants.
+              </p>
               <Button 
                 disabled={loading} 
                 onClick={handleResetDatabase} 
-                className="w-full h-12 font-bold bg-primary/10 text-primary border-primary/20 hover:bg-primary/20"
+                className="w-full h-12 font-bold bg-primary text-white hover:opacity-90 uppercase tracking-widest"
               >
                 {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <RotateCcw className="w-4 h-4 mr-2" />}
-                RESTORE FACTORY DEFAULTS (CLOUD)
+                RESTORE FACTORY DEFAULTS
               </Button>
             </div>
           )}
