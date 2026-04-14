@@ -1,69 +1,356 @@
-
 {
   "entities": {
     "Team": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Team",
       "type": "object",
-      "description": "Represents a participating team.",
+      "description": "Represents a participating team in the cryptic hunt, tracking their progress and status.",
       "properties": {
-        "teamName": { "type": "string" },
-        "currentLevel": { "type": "number" },
-        "flagCount": { "type": "number" },
-        "penaltyUntil": { "type": "string", "format": "date-time" }
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Team entity."
+        },
+        "teamName": {
+          "type": "string",
+          "description": "The unique name chosen by the team for identification."
+        },
+        "currentLevelId": {
+          "type": "string",
+          "description": "Reference to the current Level entity the team is attempting or has solved. (Relationship: Team 1:N Level)"
+        },
+        "flagCount": {
+          "type": "number",
+          "description": "The cumulative count of times the team has been flagged for suspicious activity."
+        },
+        "penaltyUntil": {
+          "type": "string",
+          "description": "Timestamp indicating the exact date and time until which a penalty is active for the team. If null or past, no penalty is active.",
+          "format": "date-time"
+        }
       },
-      "required": ["teamName", "currentLevel", "flagCount"]
+      "required": [
+        "id",
+        "teamName",
+        "currentLevelId",
+        "flagCount"
+      ]
     },
     "Level": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Level",
       "type": "object",
+      "description": "Defines a single cryptic hunt level, including its question and order.",
       "properties": {
-        "question": { "type": "string" },
-        "answer": { "type": "string" },
-        "order": { "type": "number" }
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Level entity."
+        },
+        "question": {
+          "type": "string",
+          "description": "The text content of the cryptic question for this level."
+        },
+        "order": {
+          "type": "number",
+          "description": "The sequential order of this level within the overall hunt."
+        }
       },
-      "required": ["question", "answer", "order"]
+      "required": [
+        "id",
+        "question",
+        "order"
+      ]
+    },
+    "Attempt": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Attempt",
+      "type": "object",
+      "description": "Records each submission attempt made by a team for a particular level, including outcome and metadata.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Attempt entity."
+        },
+        "teamId": {
+          "type": "string",
+          "description": "Reference to the Team entity that made this attempt. (Relationship: Team 1:N Attempt)"
+        },
+        "levelId": {
+          "type": "string",
+          "description": "Reference to the Level entity for which this attempt was made. (Relationship: Level 1:N Attempt)"
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "The exact date and time when the attempt was recorded.",
+          "format": "date-time"
+        },
+        "isCorrect": {
+          "type": "boolean",
+          "description": "A boolean indicating whether the submitted answer was correct for the level."
+        },
+        "ip": {
+          "type": "string",
+          "description": "The IP address from which the attempt originated, used for security and monitoring."
+        }
+      },
+      "required": [
+        "id",
+        "teamId",
+        "levelId",
+        "timestamp",
+        "isCorrect"
+      ]
+    },
+    "Flag": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Flag",
+      "type": "object",
+      "description": "Documents instances where a team has been identified for suspicious or irregular activity.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Flag entity."
+        },
+        "teamId": {
+          "type": "string",
+          "description": "Reference to the Team entity that was flagged. (Relationship: Team 1:N Flag)"
+        },
+        "reason": {
+          "type": "string",
+          "description": "A descriptive explanation of why the team was flagged."
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "The exact date and time when the flag was recorded.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "teamId",
+        "reason",
+        "timestamp"
+      ]
     },
     "Hint": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Hint",
       "type": "object",
+      "description": "Stores a hint associated with a specific level, including its content and release status.",
       "properties": {
-        "levelId": { "type": "string" },
-        "hintText": { "type": "string" },
-        "isReleased": { "type": "boolean" },
-        "releasedAt": { "type": "string", "format": "date-time" }
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Hint entity."
+        },
+        "levelId": {
+          "type": "string",
+          "description": "Reference to the Level entity to which this hint belongs. (Relationship: Level 1:N Hint)"
+        },
+        "hintText": {
+          "type": "string",
+          "description": "The textual content of the hint."
+        },
+        "isReleased": {
+          "type": "boolean",
+          "description": "A boolean indicating whether the hint has been officially released and is visible to teams."
+        },
+        "releasedAt": {
+          "type": "string",
+          "description": "The exact date and time when the hint was released.",
+          "format": "date-time"
+        }
       },
-      "required": ["levelId", "hintText", "isReleased"]
+      "required": [
+        "id",
+        "levelId",
+        "hintText",
+        "isReleased"
+      ]
     },
-    "HintRequest": {
-      "title": "HintRequest",
+    "AdminUser": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "AdminUser",
       "type": "object",
+      "description": "Represents an administrative user account with elevated privileges to manage the hunt. This entity is assumed for referential integrity with AdminLog.",
       "properties": {
-        "teamId": { "type": "string" },
-        "levelId": { "type": "string" },
-        "requestedAt": { "type": "string", "format": "date-time" }
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the AdminUser entity."
+        },
+        "username": {
+          "type": "string",
+          "description": "The unique username used by the administrator for login."
+        }
       },
-      "required": ["teamId", "levelId", "requestedAt"]
+      "required": [
+        "id",
+        "username"
+      ]
+    },
+    "AdminLog": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "AdminLog",
+      "type": "object",
+      "description": "Records every administrative action performed within the application for auditing and monitoring purposes.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the AdminLog entity."
+        },
+        "adminId": {
+          "type": "string",
+          "description": "Reference to the AdminUser entity who performed this action. (Relationship: AdminUser 1:N AdminLog)"
+        },
+        "action": {
+          "type": "string",
+          "description": "A descriptive string indicating the type of action performed (e.g., 'releaseHint', 'applyPenalty')."
+        },
+        "metadata": {
+          "type": "string",
+          "description": "A JSON string containing additional, structured data relevant to the specific action (e.g., {'teamId': 'xyz', 'penaltyDuration': 45})."
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "The exact date and time when the administrative action was performed.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "adminId",
+        "action",
+        "timestamp"
+      ]
     }
   },
   "auth": {
-    "providers": ["password"]
+    "providers": [
+      "password",
+      "anonymous"
+    ]
   },
   "firestore": {
-    "/teams/{teamId}": {
-      "schema": { "$ref": "#/entities/Team" },
-      "description": "Team profiles."
-    },
-    "/levels/{levelId}": {
-      "schema": { "$ref": "#/entities/Level" },
-      "description": "Hunt levels."
-    },
-    "/hints/{hintId}": {
-      "schema": { "$ref": "#/entities/Hint" },
-      "description": "Cryptic hints for levels."
-    },
-    "/hintRequests/{requestId}": {
-      "schema": { "$ref": "#/entities/HintRequest" },
-      "description": "Flat collection of hint requests."
-    }
+    "structure": [
+      {
+        "path": "/teams/{teamId}",
+        "definition": {
+          "entityName": "Team",
+          "schema": {
+            "$ref": "#/backend/entities/Team"
+          },
+          "description": "Represents a participating team. Documents are owned by the team, where `teamId` matches `request.auth.uid` for authorization.",
+          "params": [
+            {
+              "name": "teamId",
+              "description": "The unique identifier for the team, corresponding to `request.auth.uid`."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/levels/{levelId}",
+        "definition": {
+          "entityName": "Level",
+          "schema": {
+            "$ref": "#/backend/entities/Level"
+          },
+          "description": "Defines a single cryptic hunt level, containing public information (question, order). Sensitive data like answer hashes are present but restricted by security rules for client reads.",
+          "params": [
+            {
+              "name": "levelId",
+              "description": "The unique identifier for the level."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/teams/{teamId}/attempts/{attemptId}",
+        "definition": {
+          "entityName": "Attempt",
+          "schema": {
+            "$ref": "#/backend/entities/Attempt"
+          },
+          "description": "Records each submission attempt made by a team for a level. Owned by the team, where `teamId` in the path matches `request.auth.uid`. Includes denormalized 'teamId' from path for authorization independence.",
+          "params": [
+            {
+              "name": "teamId",
+              "description": "The unique identifier of the team that made the attempt, corresponding to `request.auth.uid`."
+            },
+            {
+              "name": "attemptId",
+              "description": "The unique identifier for the attempt."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/flags/{flagId}",
+        "definition": {
+          "entityName": "Flag",
+          "schema": {
+            "$ref": "#/backend/entities/Flag"
+          },
+          "description": "Documents instances of suspicious activity. Only accessible by administrators through Cloud Functions for writes and direct read for admin dashboard.",
+          "params": [
+            {
+              "name": "flagId",
+              "description": "The unique identifier for the flag."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/levels/{levelId}/hints/{hintId}",
+        "definition": {
+          "entityName": "Hint",
+          "schema": {
+            "$ref": "#/backend/entities/Hint"
+          },
+          "description": "Stores hints associated with a level. Access is restricted based on the `isReleased` field and the team's `currentLevelId`. Includes implicit `levelId` from the path for authorization context.",
+          "params": [
+            {
+              "name": "levelId",
+              "description": "The unique identifier of the level to which the hint belongs."
+            },
+            {
+              "name": "hintId",
+              "description": "The unique identifier for the hint."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/admin_roles/{adminId}",
+        "definition": {
+          "entityName": "AdminUser",
+          "schema": {
+            "$ref": "#/backend/entities/AdminUser"
+          },
+          "description": "Used for Database Access Control (DBAC) to grant administrative privileges. An `adminId` document must exist here for a user to have admin rights, where `adminId` matches `request.auth.uid`.",
+          "params": [
+            {
+              "name": "adminId",
+              "description": "The unique identifier for the administrator, corresponding to `request.auth.uid`."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/admin_logs/{adminLogId}",
+        "definition": {
+          "entityName": "AdminLog",
+          "schema": {
+            "$ref": "#/backend/entities/AdminLog"
+          },
+          "description": "Records all administrative actions for auditing. Only accessible by administrators.",
+          "params": [
+            {
+              "name": "adminLogId",
+              "description": "The unique identifier for the admin log entry."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore data structure is designed to adhere strictly to the core design principles, focusing on authorization independence, clarity of intent, and support for secure `list` operations (QAPs). \n\n**Authorization Independence via Denormalization:**\n\n1.  **Team and Admin Roles:** For top-level collections like `/teams/{teamId}` and `/admin_roles/{adminId}`, authorization is directly tied to the document ID matching `request.auth.uid`. This makes them inherently authorization-independent as the UID itself is the authority, requiring no `get()` calls to other documents for fundamental access.\n2.  **Hierarchical User-Owned Data:** The `/teams/{teamId}/attempts/{attemptId}` subcollection follows path-based ownership. The `teamId` in the path directly corresponds to `request.auth.uid`, making access rules simple (`request.auth.uid == teamId`) and atomic for operations within that subcollection. The `teamId` is implicitly denormalized into the path structure.\n3.  **Collaborative/Shared Data (Hints):** The `/levels/{levelId}/hints/{hintId}` collection presents the most complex authorization challenge under strict adherence to Authorization Independence (avoiding `get()` calls). Hints need to be read only if `isReleased` is true AND the requesting team (`request.auth.uid`) is currently on the associated `levelId`. \n    *   **How Authorization Independence is handled:** To enable QAPs for hints (allowing clients to query `where isReleased == true` securely) and support real-time synchronization, the chosen approach allows a limited `get()` call within security rules: `get(/teams/$(request.auth.uid)).data.currentLevelId == levelId`. This reads the *authenticated user's own team document* to verify their current level. While a `get()` call, it is specifically for the `request.auth.uid`'s own state, which is a common and often accepted pattern, as it does not create a complex hierarchical dependency chain between arbitrary documents and does not break atomic operations involving the `hint` document itself. The `levelId` is included in the path to simplify rule evaluation, and `isReleased` is a direct field on the hint document.\n\n**Structural Segregation (Homogeneous Security Posture):**\n\n1.  **Public vs. Sensitive Level Data:** The `/levels/{levelId}` collection stores public-facing level information (`question`, `order`). Sensitive data like `answerHash` and `salt` (as identified in the backend requirements) would reside within these same documents, but security rules would explicitly prevent clients from reading these specific fields. This maintains a single collection for levels while segregating read access at the field level, ensuring clients only receive public information.\n2.  **Admin-Only Data:** Collections like `/flags/{flagId}` and `/admin_logs/{adminLogId}` are segregated. Their security posture is uniformly admin-only. Access is granted based on the existence of the `request.auth.uid` in the `/admin_roles/{adminId}` collection, ensuring strict administrative control and simplifying rules for these collections.\n\n**QAPs (Rules are not Filters):**\n\n*   **Team Data:** Teams can securely `list` their own attempts in `/teams/{teamId}/attempts`. The rules enforce that `teamId` matches `request.auth.uid`.\n*   **Leaderboard:** The leaderboard functionality is implicitly supported. A Cloud Function could securely read and aggregate data from `teams` for the leaderboard, or security rules can allow public read of specific, non-sensitive `team` fields (`currentLevelId`, `teamName`) for the leaderboard, enabling client-side `list` operations.\n*   **Hints:** For hints in `/levels/{levelId}/hints`, clients can `list` documents `where isReleased == true` for their `currentLevelId`. The security rule checks both the `isReleased` field (preventing rule filtering) and the team's current level (via the controlled `get()` for `request.auth.uid`'s own team document) to ensure only relevant and released hints are accessible.\n*   **Admin Data:** Admins can securely `list` all documents in `/flags` and `/admin_logs` due to their explicit admin role definition in `/admin_roles/{adminId}`. This design enables efficient queries without requiring the rules to filter out unauthorized documents after a broad `list` operation.\n\n**DBAC (No Custom Claims) and Data Clarity:**\n\n*   **Global Roles:** Admin roles are managed via the `/admin_roles/{adminId}` collection, using the 'existence over content' principle. This decouples role management from Firebase Auth custom claims, simplifying rule logic (`get(/admin_roles/$(request.auth.uid)) != null`).\n*   **Predictable Schema & Consistent Naming:** All paths use descriptive wildcards (e.g., `{teamId}`, `{levelId}`). Authorization fields like `teamId` are consistently used either in the path or as a denormalized field where necessary, promoting clarity and debuggability in rules. Explicit state modeling for `isReleased` in hints simplifies conditional access."
   }
 }

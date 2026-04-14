@@ -1,59 +1,151 @@
+/**
+ * Firebase Security Rules for Cryptic Hunt Application
+ * 
+ * Core Philosophy:
+ * This ruleset implements a hybrid security model designed for a competitive cryptic hunt. 
+ * It prioritizes strict identity-based ownership for team progress while allowing 
+ * administrators full oversight. Read access to game content (Levels and Hints) is 
+ * dynamically granted based on the team's current progress state.
+ * 
+ * Data Structure:
+ * - /teams/{teamId}: Root collection for team profiles. Linked to Auth UID.
+ * - /teams/{teamId}/attempts/{attemptId}: Subcollection tracking submissions per team.
+ * - /levels/{levelId}: Global game levels containing questions.
+ * - /levels/{levelId}/hints/{hintId}: Subcollection for level-specific hints.
+ * - /admin_roles/{adminId}: DBAC collection identifying administrative users.
+ * - /flags/{flagId} & /admin_logs/{adminLogId}: Protected audit and security collections.
+ * 
+ * Key Security Decisions:
+ * 1. Admin Authorization: Handled via the existence of a document in the 'admin_roles' 
+ *    collection, avoiding the complexity of custom claims.
+ * 2. Team Privacy: Teams can only read their own attempts. However, basic team info 
+ *    is publicly readable (get/list) to facilitate leaderboards and synchronization.
+ * 3. Progress-Locked Hints: Access to hints requires the hint to be 'released' AND 
+ *    the team's 'currentLevelId' to match the level being queried.
+ * 4. Write Protection: Only owners can create/update their own data. Only admins can 
+ *    delete or modify game configuration and audit logs.
+ * 
+ * Denormalization for Authorization:
+ * - The 'currentLevelId' on the Team document is used to authorize access to hints.
+ * - The 'teamId' is enforced within subcollection paths and internal data fields 
+ *   to ensure relational integrity without external lookups.
+ */
 
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isAuthenticated() {
+    // --- Helper Functions ---
+
+    /** @description Checks if the user is authenticated. */
+    function isSignedIn() {
       return request.auth != null;
     }
 
+    /** @description Checks if the authenticated user matches the provided ID. */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /** @description Checks if the authenticated user owns the document and it exists. */
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
+    }
+
+    /** @description Checks if the authenticated user has an entry in the admin_roles collection. */
     function isAdmin() {
-      // Identity-based admin check for prototype
-      return isAuthenticated() && (
-        request.auth.token.email == "admin@intra-syntax.com" || 
-        request.auth.token.email == "admins@intra-syntax.com"
-      );
+      return isSignedIn() && exists(/databases/$(database)/documents/admin_roles/$(request.auth.uid));
     }
 
+    /** @description Retrieves the team document for the current authenticated user. */
+    function getMyTeamData() {
+      return get(/databases/$(database)/documents/teams/$(request.auth.uid)).data;
+    }
+
+    // --- Collection Rules ---
+
+    /**
+     * @description Rules for the Team profile. Owners manage their profiles; everyone can see them for leaderboards.
+     * @path /teams/{teamId}
+     * @allow (get/list) Any signed-in user (for leaderboard sync). (create) Owner matching UID.
+     * @deny (create) Mismatched UID. (delete) Non-admin users.
+     * @principle Ownership-based writes with public-signed-in reads.
+     */
     match /teams/{teamId} {
-      allow read: if isAuthenticated() && (request.auth.uid == teamId || isAdmin());
-      // Allow teams to create their own record during first login
-      allow write: if isAuthenticated() && (request.auth.uid == teamId || isAdmin());
+      allow get, list: if isSignedIn();
+      allow create: if isOwner(teamId) && request.resource.data.id == teamId;
+      allow update: if isExistingOwner(teamId) && request.resource.data.id == resource.data.id;
+      allow delete: if isAdmin();
+
+      /**
+       * @description Records of level submissions. Private to the team and admins.
+       * @path /teams/{teamId}/attempts/{attemptId}
+       * @allow (list) The team owner. (create) The team owner with matching teamId field.
+       * @deny (get) Another team's attempts.
+       * @principle Hierarchical path-based ownership.
+       */
+      match /attempts/{attemptId} {
+        allow get, list: if isOwner(teamId) || isAdmin();
+        allow create: if isOwner(teamId) && request.resource.data.teamId == teamId;
+        allow update: if isExistingOwner(teamId) && request.resource.data.teamId == resource.data.id;
+        allow delete: if isAdmin();
+      }
     }
 
+    /**
+     * @description Game levels containing questions.
+     * @path /levels/{levelId}
+     * @allow (get/list) All signed-in users. (write) Admins only.
+     * @deny (write) Any non-admin team.
+     * @principle Read-only access for participants; admin-controlled content.
+     */
     match /levels/{levelId} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+
+      /**
+       * @description Level-specific hints. Locked by release status and team progress.
+       * @path /levels/{levelId}/hints/{hintId}
+       * @allow (get/list) If hint isReleased AND user is on this level.
+       * @deny (get) If hint is not released or user is on a different level.
+       * @principle Conditional shared access via document lookup.
+       */
+      match /hints/{hintId} {
+        allow get, list: if isAdmin() || (isSignedIn() && resource.data.isReleased == true && getMyTeamData().currentLevelId == levelId);
+        allow create, update, delete: if isAdmin();
+      }
     }
 
-    match /hints/{hintId} {
-      allow read: if isAuthenticated() && (resource.data.isReleased == true || isAdmin());
-      allow write: if isAdmin();
+    /**
+     * @description Collection used for Database Access Control (DBAC).
+     * @path /admin_roles/{adminId}
+     * @allow (get) Any signed-in user (to check role). (write) Admins only.
+     * @principle Admin-only management of global roles.
+     */
+    match /admin_roles/{adminId} {
+      allow get: if isSignedIn();
+      allow list: if isAdmin();
+      allow create, update, delete: if isAdmin();
     }
 
-    match /hintRequests/{requestId} {
-      allow read: if isAdmin() || (isAuthenticated() && resource.data.teamId == request.auth.uid);
-      allow create: if isAuthenticated() && request.resource.data.teamId == request.auth.uid;
-      allow update, delete: if isAdmin();
+    /**
+     * @description Audit logs of administrative actions.
+     * @path /admin_logs/{adminLogId}
+     * @allow (all) Admins only.
+     * @principle Restricted administrative auditing.
+     */
+    match /admin_logs/{adminLogId} {
+      allow get, list, create, update, delete: if isAdmin();
     }
 
-    match /attempts/{attemptId} {
-      allow read: if isAdmin();
-      allow write: if isAuthenticated();
-    }
-
+    /**
+     * @description Security flags for suspicious activity.
+     * @path /flags/{flagId}
+     * @allow (all) Admins only.
+     * @principle Restricted security monitoring.
+     */
     match /flags/{flagId} {
-      allow read: if isAdmin();
-      allow write: if isAdmin();
-    }
-
-    match /adminLogs/{logId} {
-      allow read: if isAdmin();
-      allow write: if isAdmin();
-    }
-
-    match /{document=**} {
-      allow read, write: if false;
+      allow get, list, create, update, delete: if isAdmin();
     }
   }
 }
