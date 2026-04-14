@@ -117,8 +117,10 @@ export default function AdminDashboard() {
   }, []);
 
   useEffect(() => {
-    if (isMounted && !authLoading && auth.userType !== 'admin') {
-      router.push('/login');
+    if (isMounted && !authLoading) {
+      if (auth.userType !== 'admin') {
+        router.push('/login');
+      }
     }
   }, [auth, authLoading, router, isMounted]);
 

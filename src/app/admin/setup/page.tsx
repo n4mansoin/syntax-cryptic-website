@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -33,7 +32,7 @@ export default function AdminSetupPage() {
     
     setLoading(true);
     try {
-      // 1. Establish administrative identity first
+      // 1. Establish administrative identity first in a standalone write
       const adminRoleRef = doc(db, 'admin_roles', user.uid);
       await setDoc(adminRoleRef, { 
         username: 'admin', 
@@ -41,16 +40,28 @@ export default function AdminSetupPage() {
         bootstrappedAt: new Date().toISOString()
       }, { merge: true });
 
-      // 2. Synchronize levels and metadata
+      // 2. Synchronize levels and metadata in a batch
       const batch = writeBatch(db);
 
-      // Reset Levels
+      // Synchronize Levels from JSON
       initialLevels.forEach((level: any) => {
         const levelRef = doc(db, 'levels', level.id);
         batch.set(levelRef, level);
       });
 
-      // Reset all existing teams in Firestore to Level 1
+      // Synchronize Teams from JSON and RESET all to Level 1
+      initialTeams.forEach((team: any) => {
+        const teamRef = doc(db, 'teams', team.id);
+        batch.set(teamRef, {
+          teamName: team.teamName,
+          currentLevel: 1, // FORCE ALL TO LEVEL 1
+          flagCount: 0,
+          penaltyUntil: null,
+          lastSolvedAt: null
+        }, { merge: true });
+      });
+
+      // Also reset any existing teams in Firestore that might not be in JSON
       const teamsSnap = await getDocs(collection(db, 'teams'));
       teamsSnap.forEach((teamDoc) => {
         batch.update(teamDoc.ref, {

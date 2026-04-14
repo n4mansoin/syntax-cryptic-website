@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
@@ -29,7 +28,7 @@ interface AuthContextType {
   logout: () => void;
 }
 
-const STORAGE_KEY = 'cryptic_user_session_v17';
+const STORAGE_KEY = 'intra_syntax_global_auth_v5';
 const INITIAL_STATE: AuthState = {
   userType: null,
   teamId: null,
@@ -75,6 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         userCredential = await signInWithEmailAndPassword(firebaseAuth, email, password);
       } catch (err: any) {
+        // Handle both invalid-credential and user-not-found for auto-provisioning
         if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential' || err.code === 'auth/invalid-email') {
           userCredential = await createUserWithEmailAndPassword(firebaseAuth, email, password);
         } else {

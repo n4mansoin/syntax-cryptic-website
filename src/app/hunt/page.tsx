@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -27,6 +26,7 @@ export default function HuntPage() {
   const [levelTimer, setLevelTimer] = useState(0);
   const [penaltyTimeLeft, setPenaltyTimeLeft] = useState<string | null>(null);
 
+  // Strict Redirection Guard
   useEffect(() => {
     if (!authLoading) {
       if (auth.userType === 'admin') {
