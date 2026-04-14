@@ -11,13 +11,18 @@ export default function Home() {
   const { auth } = useAuth();
   const router = useRouter();
   const [huntStartTime, setHuntStartTime] = useState<Date | null>(null);
+  const [huntEndTime, setHuntEndTime] = useState<Date | null>(null);
   const [startVisible, setStartVisible] = useState(false);
 
   useEffect(() => {
-    // Target: 14th April 2026, 6:00 PM IST (UTC+5:30)
+    // Target Start: 14th April 2026, 6:00 PM IST (UTC+5:30)
     // 6:00 PM IST is 12:30 PM UTC
-    const target = new Date('2026-04-14T12:30:00Z');
-    setHuntStartTime(target);
+    const start = new Date('2026-04-14T12:30:00Z');
+    // Hunt ends 48 hours after it starts
+    const end = new Date(start.getTime() + 48 * 60 * 60 * 1000);
+    
+    setHuntStartTime(start);
+    setHuntEndTime(end);
 
     const timer = setTimeout(() => {
       setStartVisible(true);
@@ -48,7 +53,9 @@ export default function Home() {
         absolute top-32 z-10 transition-all duration-1000 px-6
         ${startVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'}
       `}>
-        {huntStartTime && <Countdown targetDate={huntStartTime} />}
+        {huntStartTime && huntEndTime && (
+          <Countdown startDate={huntStartTime} endDate={huntEndTime} />
+        )}
       </div>
 
       {/* START Button - Positioned at the visual center of the spiral */}
