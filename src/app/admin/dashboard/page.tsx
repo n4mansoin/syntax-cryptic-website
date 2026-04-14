@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -123,7 +122,7 @@ export default function AdminDashboard() {
 
   const handleAddHint = () => {
     if (!hintText || !selectedLevelId) return;
-    localApi.releaseHint(selectedLevelId, hintText, { state, updateStore });
+    localApi.releaseHint(selectedLevelId, hintText, updateStore);
     
     toast({
       title: "Signal Injected",
@@ -135,7 +134,7 @@ export default function AdminDashboard() {
   };
 
   const handleFlagTeam = (teamId: string) => {
-    localApi.flagTeam(teamId, "Manual Admin Flag", { state, updateStore });
+    localApi.flagTeam(teamId, "Manual Admin Flag", updateStore);
     toast({
       title: "Protocol Violation Logged",
       description: "Team has been flagged for manual review.",
@@ -144,7 +143,7 @@ export default function AdminDashboard() {
 
   const handleApplyPenalty = (teamId: string, mins: number) => {
     if (isNaN(mins)) return;
-    localApi.applyPenalty(teamId, mins, { state, updateStore });
+    localApi.applyPenalty(teamId, mins, updateStore);
     toast({
       title: "Terminal Lockout Active",
       description: `Target terminal has been suppressed for ${mins} minutes.`,
@@ -152,7 +151,7 @@ export default function AdminDashboard() {
   };
 
   const handleRemovePenalty = (teamId: string) => {
-    localApi.removePenalty(teamId, { state, updateStore });
+    localApi.removePenalty(teamId, updateStore);
     toast({
       title: "Lockout Lifted",
       description: "Terminal communication restored.",

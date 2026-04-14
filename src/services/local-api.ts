@@ -1,4 +1,3 @@
-
 'use client';
 
 import { decryptAnswer } from '@/utils/crypto';
@@ -6,7 +5,13 @@ import { ATTEMPT_LIMIT_PER_MINUTE, FLAGS_UNTIL_PENALTY, PENALTY_DURATION_MINUTES
 import { StoreState, Attempt, Flag } from '@/lib/local-store';
 
 export const localApi = {
-  async submitAnswer(teamId: string, levelId: string, userInput: string, state: StoreState, updateStore: (updater: (prev: StoreState) => StoreState) => void) {
+  async submitAnswer(
+    teamId: string, 
+    levelId: string, 
+    userInput: string, 
+    state: StoreState, 
+    updateStore: (updater: (prev: StoreState) => StoreState) => void
+  ) {
     const team = state.teams.find(t => t.id === teamId);
     if (!team) return { success: false, message: "Identity mismatch." };
 
@@ -39,10 +44,11 @@ export const localApi = {
       return { success: false, message: "Security Layer Error. Reset System via Admin." };
     }
 
-    // Check if input matches (case-insensitive and trimmed)
-    const isCorrect = normalizedInput === decryptedString.toLowerCase().trim();
+    // Support multiple answers if the string contains "|" (though usually singular)
+    const validAnswers = decryptedString.toLowerCase().split('|').map(a => a.trim());
+    const isCorrect = validAnswers.includes(normalizedInput);
 
-    // 4. Update Store (Atomic update)
+    // 4. Update Store
     updateStore(prev => {
       const next = { ...prev };
       
@@ -72,7 +78,11 @@ export const localApi = {
       { success: false, message: "Invalid Key Code. Access Denied." };
   },
 
-  flagTeam(teamId: string, reason: string, updateStore: (updater: (prev: StoreState) => StoreState) => void) {
+  flagTeam(
+    teamId: string, 
+    reason: string, 
+    updateStore: (updater: (prev: StoreState) => StoreState) => void
+  ) {
     const now = new Date();
     updateStore(prev => {
       const next = { ...prev };
@@ -102,29 +112,40 @@ export const localApi = {
     });
   },
 
-  applyPenalty(teamId: string, mins: number, { updateStore }: any) {
+  applyPenalty(
+    teamId: string, 
+    mins: number, 
+    updateStore: (updater: (prev: StoreState) => StoreState) => void
+  ) {
     const now = new Date();
-    updateStore((prev: any) => ({
+    updateStore(prev => ({
       ...prev,
-      teams: prev.teams.map((t: any) => t.id === teamId ? {
+      teams: prev.teams.map(t => t.id === teamId ? {
         ...t,
         penaltyUntil: new Date(now.getTime() + mins * 60000).toISOString()
       } : t)
     }));
   },
 
-  removePenalty(teamId: string, { updateStore }: any) {
-    updateStore((prev: any) => ({
+  removePenalty(
+    teamId: string, 
+    updateStore: (updater: (prev: StoreState) => StoreState) => void
+  ) {
+    updateStore(prev => ({
       ...prev,
-      teams: prev.teams.map((t: any) => t.id === teamId ? {
+      teams: prev.teams.map(t => t.id === teamId ? {
         ...t,
         penaltyUntil: null
       } : t)
     }));
   },
 
-  releaseHint(levelId: string, hintText: string, { updateStore }: any) {
-    updateStore((prev: any) => {
+  releaseHint(
+    levelId: string, 
+    hintText: string, 
+    updateStore: (updater: (prev: StoreState) => StoreState) => void
+  ) {
+    updateStore(prev => {
       const next = { ...prev };
       const newHint = {
         id: Math.random().toString(36).substr(2, 9),
