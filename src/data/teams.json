@@ -1,18 +1,36 @@
 
 [
   {
-    "id": "team-test123",
-    "teamName": "test123",
-    "password": "testing",
+    "id": "team-encrypted",
+    "teamName": "encrypted",
+    "password": "Xj92pL",
     "currentLevel": 1,
     "flagCount": 0,
     "penaltyUntil": null,
     "lastSolvedAt": null
   },
   {
-    "id": "team-test1",
-    "teamName": "test1",
-    "password": "testingstill",
+    "id": "team-encrypters",
+    "teamName": "encrypters",
+    "password": "Km48tR",
+    "currentLevel": 1,
+    "flagCount": 0,
+    "penaltyUntil": null,
+    "lastSolvedAt": null
+  },
+  {
+    "id": "team-bobsquad",
+    "teamName": "Bob Squad",
+    "password": "Bq71vS",
+    "currentLevel": 1,
+    "flagCount": 0,
+    "penaltyUntil": null,
+    "lastSolvedAt": null
+  },
+  {
+    "id": "team-cvs",
+    "teamName": "CVS",
+    "password": "Cw29fG",
     "currentLevel": 1,
     "flagCount": 0,
     "penaltyUntil": null,
