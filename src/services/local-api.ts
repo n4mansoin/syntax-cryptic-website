@@ -30,12 +30,13 @@ export const localApi = {
     const level = state.levels.find(l => l.id === levelId);
     if (!level) return { success: false, message: "Signal synchronization failed." };
 
-    const normalizedInput = userInput.toLowerCase().trim();
-    const correctAnswer = decryptAnswer(level.encryptedAnswer, level.salt);
+    const normalizedInput = userInput.trim().toLowerCase();
     
-    // In a real scenario, the decryption would only happen in the service.
-    // We compare normalized strings.
-    const isCorrect = normalizedInput === correctAnswer.toLowerCase().trim();
+    // Decrypt at runtime for validation
+    const correctAnswer = decryptAnswer(level.encryptedAnswer, level.salt).trim().toLowerCase();
+    
+    // Strict comparison
+    const isCorrect = normalizedInput === correctAnswer;
 
     // 4. Update Store (Atomic update)
     updateStore(prev => {
@@ -99,7 +100,7 @@ export const localApi = {
     });
   },
 
-  applyPenalty(teamId: string, mins: number, { state, updateStore }: any) {
+  applyPenalty(teamId: string, mins: number, { updateStore }: any) {
     const now = new Date();
     updateStore((prev: any) => ({
       ...prev,
@@ -110,7 +111,7 @@ export const localApi = {
     }));
   },
 
-  removePenalty(teamId: string, { state, updateStore }: any) {
+  removePenalty(teamId: string, { updateStore }: any) {
     updateStore((prev: any) => ({
       ...prev,
       teams: prev.teams.map((t: any) => t.id === teamId ? {
@@ -120,7 +121,7 @@ export const localApi = {
     }));
   },
 
-  releaseHint(levelId: string, hintText: string, { state, updateStore }: any) {
+  releaseHint(levelId: string, hintText: string, { updateStore }: any) {
     updateStore((prev: any) => {
       const next = { ...prev };
       const newHint = {
