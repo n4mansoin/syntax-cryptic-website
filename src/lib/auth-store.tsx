@@ -21,7 +21,7 @@ interface AuthContextType {
   logout: () => void;
 }
 
-const STORAGE_KEY = 'cryptic_user_session_v13';
+const STORAGE_KEY = 'cryptic_user_session_v14';
 const INITIAL_STATE: AuthState = {
   userType: null,
   teamId: null,
@@ -69,7 +69,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return true;
     }
 
-    // Direct plain text comparison as requested
+    if (!isReady) return false;
+
+    // Direct plain text comparison
     const team = state.teams.find(t => 
       t.teamName.toLowerCase().trim() === normalizedName && 
       t.password === passwordPlain.trim()
