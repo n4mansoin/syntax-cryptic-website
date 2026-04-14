@@ -66,7 +66,7 @@ export default function LoginPage() {
             <div className="mx-auto w-20 h-20 rounded-2xl bg-primary/5 flex items-center justify-center mb-4 overflow-hidden">
               <Image src="/images/logo1.png" alt="Logo" width={64} height={64} className="object-contain" />
             </div>
-            <CardTitle className="text-3xl font-headline font-bold tracking-tight text-white">Identity Check</CardTitle>
+            <CardTitle className="text-3xl font-headline font-bold tracking-tight text-white">Login</CardTitle>
             <CardDescription className="text-muted-foreground font-mono text-[10px] uppercase">Awaiting Terminal Credentials</CardDescription>
           </CardHeader>
           <CardContent>
@@ -101,7 +101,7 @@ export default function LoginPage() {
                 </div>
               </div>
               <Button type="submit" disabled={submitting} className="w-full h-12 font-bold bg-primary text-white border-none rounded-xl tracking-widest uppercase transition-all hover:opacity-90 active:scale-95">
-                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "VERIFY IDENTITY"}
+                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "LOGIN"}
               </Button>
             </form>
           </CardContent>
