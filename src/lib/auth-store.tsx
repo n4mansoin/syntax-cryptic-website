@@ -5,6 +5,7 @@ import { useAuth as useFirebaseAuth, useUser } from '@/firebase';
 import { 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword,
+  signInAnonymously,
   signOut 
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
@@ -56,6 +57,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(false);
   }, []);
 
+  // Ensure every visitor has an anonymous session if not logged in
+  useEffect(() => {
+    if (!isUserLoading && !user && firebaseAuth) {
+      signInAnonymously(firebaseAuth).catch(err => console.error("Silent sign-in failed", err));
+    }
+  }, [user, isUserLoading, firebaseAuth]);
+
   const login = async (teamName: string, passwordPlain: string) => {
     if (!firebaseAuth) return false;
     const normalizedName = teamName.trim().toLowerCase();
@@ -67,13 +75,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         userCredential = await signInWithEmailAndPassword(firebaseAuth, email, password);
       } catch (err: any) {
-        // Modern Firebase returns invalid-credential for both user-not-found and wrong-password
         if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
           try {
-            // Attempt to auto-create the user if they don't exist
             userCredential = await createUserWithEmailAndPassword(firebaseAuth, email, password);
           } catch (createErr: any) {
-            // If email is in use, the previous error was actually a "wrong password" error
             if (createErr.code === 'auth/email-already-in-use') {
               throw err; 
             }
@@ -125,7 +130,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const roleSnap = await getDoc(roleRef);
       
       if (!roleSnap.exists()) {
-        await setDoc(roleRef, { username, role: 'admin' });
+        await setDoc(roleRef, { username, role: 'admin' }, { merge: true });
       }
 
       const newState: AuthState = { userType: 'admin', teamId: null, teamName: null, adminId };
