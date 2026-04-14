@@ -3,7 +3,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useAuth as useFirebaseAuth, useUser } from '@/firebase';
 import { 
-  signInAnonymously, 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword,
   signOut 
@@ -46,12 +45,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { user, isUserLoading } = useUser();
 
   useEffect(() => {
-    if (!isUserLoading && !user && firebaseAuth) {
-      signInAnonymously(firebaseAuth).catch(err => console.error("Firebase Anonymous Auth failed", err));
-    }
-  }, [user, isUserLoading, firebaseAuth]);
-
-  useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       try {
@@ -74,8 +67,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         userCredential = await signInWithEmailAndPassword(firebaseAuth, email, password);
       } catch (err: any) {
-        if (err.code === 'auth/user-not-found') {
-          userCredential = await createUserWithEmailAndPassword(firebaseAuth, email, password);
+        // Modern Firebase returns invalid-credential for both user-not-found and wrong-password
+        if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
+          try {
+            // Attempt to auto-create the user if they don't exist
+            userCredential = await createUserWithEmailAndPassword(firebaseAuth, email, password);
+          } catch (createErr: any) {
+            // If email is in use, the previous error was actually a "wrong password" error
+            if (createErr.code === 'auth/email-already-in-use') {
+              throw err; 
+            }
+            throw createErr;
+          }
         } else {
           throw err;
         }
@@ -98,7 +101,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const password = passwordPlain.trim();
 
     try {
-      const userCredential = await signInWithEmailAndPassword(firebaseAuth, email, password);
+      let userCredential;
+      try {
+        userCredential = await signInWithEmailAndPassword(firebaseAuth, email, password);
+      } catch (err: any) {
+        if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
+          try {
+            userCredential = await createUserWithEmailAndPassword(firebaseAuth, email, password);
+          } catch (createErr: any) {
+            if (createErr.code === 'auth/email-already-in-use') {
+              throw err;
+            }
+            throw createErr;
+          }
+        } else {
+          throw err;
+        }
+      }
+
       const adminId = userCredential.user.uid;
       
       const roleRef = doc(db, 'admin_roles', adminId);
