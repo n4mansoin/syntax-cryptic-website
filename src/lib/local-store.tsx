@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
@@ -19,8 +20,7 @@ export interface Level {
   id: string;
   order: number;
   question: string;
-  encryptedAnswer: string;
-  salt: string;
+  correctAnswer: string;
 }
 
 export interface Hint {
@@ -115,7 +115,7 @@ export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
     return () => unsub();
   }, [firestore, user, auth.userType]);
 
-  // Fetch Attempts (All for admin, scoped handled elsewhere for teams)
+  // Fetch Attempts (All for admin)
   useEffect(() => {
     if (!firestore || auth.userType !== 'admin') return;
     
@@ -140,7 +140,7 @@ export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
   const isReady = !!user && !levelsLoading && !teamsLoading;
 
   const updateStore = useCallback(() => {
-    console.warn('Mutations occur via Firestore directly.');
+    // Mutations handled directly via Firestore API in localApi
   }, []);
 
   return (

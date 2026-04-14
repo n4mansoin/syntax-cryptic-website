@@ -4,35 +4,30 @@
     "id": "lvl1",
     "order": 1,
     "question": "лёњЈмёѕЈЪэњіэњћЕдээ",
-    "encryptedAnswer": "U2FsdGVkX19O0v+8O7+V8v/Y+G/mNInZt1NfXpZ6B+z5x1pYp7gYmR3fU2E=",
-    "salt": "n7k2p"
+    "correctAnswer": "internet | world wide web"
   },
   {
     "id": "lvl2",
     "order": 2,
     "question": "25/8/11/17/26/ /26/23/10/25/1/14",
-    "encryptedAnswer": "U2FsdGVkX19O0v+8O7+V8v/Y+G/mNInZt1NfXpZ6B+z5x1pYp7gYmR3fU2E=",
-    "salt": "m8q3r"
+    "correctAnswer": "hexadecimal"
   },
   {
     "id": "lvl3",
     "order": 3,
     "question": "CuuqRR1R",
-    "encryptedAnswer": "U2FsdGVkX19O0v+8O7+V8v/Y+G/mNInZt1NfXpZ6B+z5x1pYp7gYmR3fU2E=",
-    "salt": "l9s4t"
+    "correctAnswer": "INTRA SYNTAX 2026@DPSI"
   },
   {
     "id": "lvl4",
     "order": 4,
     "question": "ẢÂĀÁĂ + ÂẢÂÁĀÁÁÂ ÃẢA̽ĀA̦A̮ẢÀÁ\n\nQdCvYRHs",
-    "encryptedAnswer": "U2FsdGVkX19O0v+8O7+V8v/Y+G/mNInZt1NfXpZ6B+z5x1pYp7gYmR3fU2E=",
-    "salt": "k0u5v"
+    "correctAnswer": "x86"
   },
   {
     "id": "lvl5",
     "order": 5,
     "question": "Va cvkryngrq ernyzf jurer pbhagyrff oybpxf ner fgnpxrq hc uvtu, Guvf fbhy jnaqref jbeyqf jurer jvyq vzntvangvba ehaf fb serr. Ab fgbar abe jbbq vf rire sbervta gb gurve phevbhf rlr, Sbe va gur ynaq bs raqyrff ohvyqvat naq cynl, gurl ubyq gur xrl. Jub ner gurl?\n\nOR\n\nHTSOH BSBSBSCAN EOTDC4NULHT",
-    "encryptedAnswer": "U2FsdGVkX19O0v+8O7+V8v/Y+G/mNInZt1NfXpZ6B+z5x1pYp7gYmR3fU2E=",
-    "salt": "j1v6w"
+    "correctAnswer": "blockchain"
   }
 ]

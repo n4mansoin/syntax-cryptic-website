@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -6,7 +7,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Navbar } from '@/components/Navbar';
 import { Database, Loader2, CheckCircle2, RotateCcw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { encryptAnswer } from '@/utils/crypto';
 import initialLevels from '@/data/levels.json';
 import initialTeams from '@/data/teams.json';
 import { useFirestore } from '@/firebase';
@@ -18,28 +18,16 @@ export default function AdminSetupPage() {
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
 
-  const RAW_ANSWERS: Record<string, string> = {
-    lvl1: "internet",
-    lvl2: "hexadecimal",
-    lvl3: "INTRA SYNTAX 2026@DPSI",
-    lvl4: "x86",
-    lvl5: "blockchain"
-  };
-
   const handleResetDatabase = async () => {
     if (!db) return;
     setLoading(true);
     try {
       const batch = writeBatch(db);
 
-      // 1. Sync Levels
+      // 1. Sync Levels (Plain Text)
       initialLevels.forEach((level: any) => {
         const levelRef = doc(db, 'levels', level.id);
-        const encrypted = encryptAnswer(RAW_ANSWERS[level.id] || '', level.salt);
-        batch.set(levelRef, {
-          ...level,
-          encryptedAnswer: encrypted
-        });
+        batch.set(levelRef, level);
       });
 
       // 2. Sync Teams
@@ -69,7 +57,7 @@ export default function AdminSetupPage() {
             <Database className="w-6 h-6 text-primary" />
           </div>
           <CardTitle>Cloud Initialization</CardTitle>
-          <CardDescription>Securely encrypt signals and sync production database</CardDescription>
+          <CardDescription>Sync production database with current level and team data</CardDescription>
         </CardHeader>
         <CardContent>
           {done ? (

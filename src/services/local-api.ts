@@ -1,9 +1,9 @@
+
 'use client';
 
-import { decryptAnswer } from '@/utils/crypto';
-import { ATTEMPT_LIMIT_PER_MINUTE, FLAGS_UNTIL_PENALTY, PENALTY_DURATION_MINUTES } from '@/utils/constants';
-import { StoreState, Attempt, Flag, Hint } from '@/lib/local-store';
-import { doc, setDoc, updateDoc, collection, addDoc, Firestore, serverTimestamp } from 'firebase/firestore';
+import { ATTEMPT_LIMIT_PER_MINUTE } from '@/utils/constants';
+import { StoreState } from '@/lib/local-store';
+import { doc, setDoc, updateDoc, collection, Firestore } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
@@ -25,7 +25,7 @@ export const localApi = {
       return { success: false, message: "Terminal Signal Suppressed." };
     }
 
-    // 2. Rate Limiting (Using global state sync)
+    // 2. Rate Limiting
     const oneMinuteAgo = new Date(now.getTime() - 60000);
     const recentAttempts = state.attempts.filter(a => a.teamId === teamId && new Date(a.timestamp) > oneMinuteAgo);
 
@@ -34,18 +34,19 @@ export const localApi = {
       return { success: false, message: "Protocol Violation: Signal Flood Detected.", flagged: true };
     }
 
-    // 3. Decryption & Verification
+    // 3. Verification
     const level = state.levels.find(l => l.id === levelId);
     if (!level) return { success: false, message: "Signal synchronization failed." };
 
     const normalizedInput = userInput.trim().toLowerCase();
-    const decryptedString = decryptAnswer(level.encryptedAnswer || '', level.salt || '');
     
-    if (!decryptedString) {
-      return { success: false, message: "Security Layer Error. Reset System via Admin." };
-    }
+    // Split correct answers by pipe for multi-answer support
+    const validAnswers = (level.correctAnswer || "")
+      .toLowerCase()
+      .split('|')
+      .map(a => a.trim())
+      .filter(a => a.length > 0);
 
-    const validAnswers = decryptedString.toLowerCase().split('|').map(a => a.trim());
     const isCorrect = validAnswers.includes(normalizedInput);
 
     // 4. Cloud Mutation
@@ -102,10 +103,6 @@ export const localApi = {
         requestResourceData: flagData
       }));
     });
-
-    // We can't easily fetch latest count here without a transaction or state ref,
-    // so we assume the caller is aware of the state or use a simple update increment.
-    // For simplicity in this local-api pattern, we update based on current state.
   },
 
   applyPenalty(db: Firestore, teamId: string, mins: number) {
