@@ -1,4 +1,3 @@
-
 'use client';
 
 import { ATTEMPT_LIMIT_PER_MINUTE } from '@/utils/constants';
@@ -30,7 +29,7 @@ export const localApi = {
     const recentAttempts = state.attempts.filter(a => a.teamId === teamId && new Date(a.timestamp) > oneMinuteAgo);
 
     if (recentAttempts.length >= ATTEMPT_LIMIT_PER_MINUTE) {
-      this.flagTeam(db, teamId, "Rate Limit Breach: Signal Flood");
+      localApi.flagTeam(db, teamId, "Rate Limit Breach: Signal Flood");
       return { success: false, message: "Protocol Violation: Signal Flood Detected.", flagged: true };
     }
 
@@ -40,7 +39,6 @@ export const localApi = {
 
     const normalizedInput = userInput.trim().toLowerCase();
     
-    // Split correct answers by pipe for multi-answer support
     const validAnswers = (level.correctAnswer || "")
       .toLowerCase()
       .split('|')

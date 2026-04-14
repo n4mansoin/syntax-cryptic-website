@@ -23,6 +23,7 @@ import {
   DialogFooter,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { useFirestore } from '@/firebase';
 
 function PenaltyTimer({ until }: { until: string | null }) {
   const [timeLeft, setTimeLeft] = useState<string>('');
@@ -102,8 +103,9 @@ function TeamPenaltyDialog({ team, onApply }: TeamPenaltyDialogProps) {
 }
 
 export default function AdminDashboard() {
+  const db = useFirestore();
   const { auth, loading: authLoading } = useAuth();
-  const { state, isReady, updateStore } = useStore();
+  const { state, isReady } = useStore();
   const { toast } = useToast();
   const router = useRouter();
   const [isMounted, setIsMounted] = useState(false);
@@ -121,8 +123,8 @@ export default function AdminDashboard() {
   }, [auth, authLoading, router, isMounted]);
 
   const handleAddHint = () => {
-    if (!hintText || !selectedLevelId) return;
-    localApi.releaseHint(selectedLevelId, hintText, updateStore);
+    if (!hintText || !selectedLevelId || !db) return;
+    localApi.releaseHint(db, selectedLevelId, hintText);
     
     toast({
       title: "Signal Injected",
@@ -134,7 +136,8 @@ export default function AdminDashboard() {
   };
 
   const handleFlagTeam = (teamId: string) => {
-    localApi.flagTeam(teamId, "Manual Admin Flag", updateStore);
+    if (!db) return;
+    localApi.flagTeam(db, teamId, "Manual Admin Flag");
     toast({
       title: "Protocol Violation Logged",
       description: "Team has been flagged for manual review.",
@@ -142,8 +145,8 @@ export default function AdminDashboard() {
   };
 
   const handleApplyPenalty = (teamId: string, mins: number) => {
-    if (isNaN(mins)) return;
-    localApi.applyPenalty(teamId, mins, updateStore);
+    if (isNaN(mins) || !db) return;
+    localApi.applyPenalty(db, teamId, mins);
     toast({
       title: "Terminal Lockout Active",
       description: `Target terminal has been suppressed for ${mins} minutes.`,
@@ -151,7 +154,8 @@ export default function AdminDashboard() {
   };
 
   const handleRemovePenalty = (teamId: string) => {
-    localApi.removePenalty(teamId, updateStore);
+    if (!db) return;
+    localApi.removePenalty(db, teamId);
     toast({
       title: "Lockout Lifted",
       description: "Terminal communication restored.",
