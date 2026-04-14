@@ -140,8 +140,6 @@ export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
     }));
   }, [levels, teams, flags]);
 
-  // Logic: isReady should be true even if user is null (for login page)
-  // useCollection returns isLoading: false when query is null.
   const isReady = !levelsLoading && !teamsLoading;
 
   const updateStore = useCallback(() => {}, []);

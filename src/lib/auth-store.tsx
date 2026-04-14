@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { useAuth as useFirebaseAuth, useUser } from '@/firebase';
+import { useAuth as useFirebaseAuth, useUser, useFirestore } from '@/firebase';
 import { 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword,
@@ -9,7 +9,6 @@ import {
   signOut 
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { useFirestore } from '@/firebase';
 
 export type UserType = 'team' | 'admin' | null;
 
@@ -28,7 +27,7 @@ interface AuthContextType {
   logout: () => void;
 }
 
-const STORAGE_KEY = 'intra_syntax_global_auth_v6';
+const STORAGE_KEY = 'intra_syntax_global_auth_v7';
 const INITIAL_STATE: AuthState = {
   userType: null,
   teamId: null,

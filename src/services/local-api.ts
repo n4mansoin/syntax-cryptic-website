@@ -1,9 +1,8 @@
-
 'use client';
 
 import { ATTEMPT_LIMIT_PER_MINUTE } from '@/utils/constants';
 import { StoreState } from '@/lib/local-store';
-import { doc, setDoc, updateDoc, collection, Firestore, getDoc } from 'firebase/firestore';
+import { doc, setDoc, updateDoc, collection, Firestore, getDoc, addDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
@@ -42,7 +41,7 @@ export const localApi = {
     const recentAttempts = state.attempts.filter(a => a.teamId === teamId && new Date(a.timestamp) > oneMinuteAgo);
 
     if (recentAttempts.length >= ATTEMPT_LIMIT_PER_MINUTE) {
-      localApi.flagTeam(db, teamId, "Rate Limit Breach: Signal Flood");
+      await localApi.flagTeam(db, teamId, "Rate Limit Breach: Signal Flood");
       return { success: false, message: "Protocol Violation: Signal Flood Detected.", flagged: true };
     }
 
@@ -57,22 +56,24 @@ export const localApi = {
     const isCorrect = validAnswers.includes(normalizedInput);
 
     // 5. Cloud Mutation
-    const attemptRef = doc(collection(db, 'teams', teamId, 'attempts'));
+    const attemptsCol = collection(db, 'teams', teamId, 'attempts');
     const attemptData = {
-      id: attemptRef.id,
       teamId,
       levelId,
       timestamp: now.toISOString(),
-      isCorrect
+      isCorrect,
+      ip: 'remote'
     };
 
-    setDoc(attemptRef, attemptData).catch(err => {
+    try {
+      await addDoc(attemptsCol, attemptData);
+    } catch (err) {
       errorEmitter.emit('permission-error', new FirestorePermissionError({
-        path: attemptRef.path,
+        path: attemptsCol.path,
         operation: 'create',
         requestResourceData: attemptData
       }));
-    });
+    }
 
     if (isCorrect) {
       updateDoc(teamRef, {
@@ -92,66 +93,78 @@ export const localApi = {
       { success: false, message: "Invalid Key Code. Access Denied." };
   },
 
-  flagTeam(db: Firestore, teamId: string, reason: string) {
+  async flagTeam(db: Firestore, teamId: string, reason: string) {
     const now = new Date();
-    const flagRef = doc(collection(db, 'flags'));
+    const flagsCol = collection(db, 'flags');
     const flagData = {
-      id: flagRef.id,
       teamId,
       reason,
       timestamp: now.toISOString()
     };
 
-    setDoc(flagRef, flagData).catch(err => {
+    try {
+      await addDoc(flagsCol, flagData);
+      const teamRef = doc(db, 'teams', teamId);
+      const teamSnap = await getDoc(teamRef);
+      if (teamSnap.exists()) {
+        const currentCount = teamSnap.data().flagCount || 0;
+        await updateDoc(teamRef, { flagCount: currentCount + 1 });
+      }
+    } catch (err) {
       errorEmitter.emit('permission-error', new FirestorePermissionError({
-        path: flagRef.path,
+        path: flagsCol.path,
         operation: 'create',
         requestResourceData: flagData
       }));
-    });
+    }
   },
 
-  applyPenalty(db: Firestore, teamId: string, mins: number) {
+  async applyPenalty(db: Firestore, teamId: string, mins: number) {
     const now = new Date();
     const teamRef = doc(db, 'teams', teamId);
-    updateDoc(teamRef, {
-      penaltyUntil: new Date(now.getTime() + mins * 60000).toISOString()
-    }).catch(err => {
+    try {
+      await updateDoc(teamRef, {
+        penaltyUntil: new Date(now.getTime() + mins * 60000).toISOString()
+      });
+    } catch (err) {
       errorEmitter.emit('permission-error', new FirestorePermissionError({
         path: teamRef.path,
         operation: 'update'
       }));
-    });
+    }
   },
 
-  removePenalty(db: Firestore, teamId: string) {
+  async removePenalty(db: Firestore, teamId: string) {
     const teamRef = doc(db, 'teams', teamId);
-    updateDoc(teamRef, {
-      penaltyUntil: null
-    }).catch(err => {
+    try {
+      await updateDoc(teamRef, {
+        penaltyUntil: null
+      });
+    } catch (err) {
       errorEmitter.emit('permission-error', new FirestorePermissionError({
         path: teamRef.path,
         operation: 'update'
       }));
-    });
+    }
   },
 
-  releaseHint(db: Firestore, levelId: string, hintText: string) {
-    const hintRef = doc(collection(db, 'hints'));
+  async releaseHint(db: Firestore, levelId: string, hintText: string) {
+    const hintsCol = collection(db, 'levels', levelId, 'hints');
     const hintData = {
-      id: hintRef.id,
       levelId,
       hintText,
       isReleased: true,
       releasedAt: new Date().toISOString()
     };
 
-    setDoc(hintRef, hintData).catch(err => {
+    try {
+      await addDoc(hintsCol, hintData);
+    } catch (err) {
       errorEmitter.emit('permission-error', new FirestorePermissionError({
-        path: hintRef.path,
+        path: hintsCol.path,
         operation: 'create',
         requestResourceData: hintData
       }));
-    });
+    }
   }
 };

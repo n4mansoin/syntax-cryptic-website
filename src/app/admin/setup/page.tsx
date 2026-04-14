@@ -46,7 +46,12 @@ export default function AdminSetupPage() {
       // Synchronize Levels from JSON
       initialLevels.forEach((level: any) => {
         const levelRef = doc(db, 'levels', level.id);
-        batch.set(levelRef, level);
+        batch.set(levelRef, {
+          id: level.id,
+          order: level.order,
+          question: level.question,
+          correctAnswer: level.correctAnswer
+        });
       });
 
       // Synchronize Teams from JSON and RESET all to Level 1
@@ -54,7 +59,7 @@ export default function AdminSetupPage() {
         const teamRef = doc(db, 'teams', team.id);
         batch.set(teamRef, {
           teamName: team.teamName,
-          currentLevel: 1, // FORCE ALL TO LEVEL 1
+          currentLevel: 1,
           flagCount: 0,
           penaltyUntil: null,
           lastSolvedAt: null

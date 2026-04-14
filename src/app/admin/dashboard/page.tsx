@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { 
-  BarChart3, Lightbulb, Loader2, Plus, Flag, Activity, MousePointer2, Timer, Clock, X
+  BarChart3, Lightbulb, Loader2, Plus, Flag, Activity, MousePointer2, Timer, Clock, X, Sparkles, BrainCircuit
 } from 'lucide-react';
 import { useStore } from '@/lib/local-store';
 import { Input } from '@/components/ui/input';
@@ -24,6 +24,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useFirestore } from '@/firebase';
+import { generateHintSuggestions } from '@/ai/flows/generate-hint-suggestions';
+import { detectSuspiciousActivity } from '@/ai/flows/detect-suspicious-activity';
 
 function PenaltyTimer({ until }: { until: string | null }) {
   const [timeLeft, setTimeLeft] = useState<string>('');
@@ -111,6 +113,7 @@ export default function AdminDashboard() {
   const [isMounted, setIsMounted] = useState(false);
   const [hintText, setHintText] = useState('');
   const [selectedLevelId, setSelectedLevelId] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
@@ -119,14 +122,14 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (isMounted && !authLoading) {
       if (auth.userType !== 'admin') {
-        router.push('/admin/login');
+        router.push('/login');
       }
     }
   }, [auth, authLoading, router, isMounted]);
 
-  const handleAddHint = () => {
+  const handleAddHint = async () => {
     if (!hintText || !selectedLevelId || !db) return;
-    localApi.releaseHint(db, selectedLevelId, hintText);
+    await localApi.releaseHint(db, selectedLevelId, hintText);
     
     toast({
       title: "Signal Injected",
@@ -137,27 +140,88 @@ export default function AdminDashboard() {
     setSelectedLevelId('');
   };
 
-  const handleFlagTeam = (teamId: string) => {
+  const handleAiGenerateHint = async () => {
+    if (!selectedLevelId) {
+      toast({ variant: "destructive", title: "Error", description: "Please select a level first." });
+      return;
+    }
+    const level = state.levels.find(l => l.id === selectedLevelId);
+    if (!level) return;
+
+    setAiLoading(true);
+    try {
+      const result = await generateHintSuggestions({ 
+        question: level.question, 
+        answer: level.correctAnswer 
+      });
+      if (result.hints.length > 0) {
+        setHintText(result.hints[0]);
+        toast({ title: "AI Generation Complete", description: "New cryptic signal generated." });
+      }
+    } catch (err) {
+      toast({ variant: "destructive", title: "AI Error", description: "Failed to generate hints." });
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const handleAuditTeam = async (teamId: string) => {
+    const team = state.teams.find(t => t.id === teamId);
+    if (!team) return;
+
+    const recentAttempts = state.attempts
+      .filter(a => a.teamId === teamId)
+      .slice(0, 10)
+      .map(a => ({
+        levelId: state.levels.find(l => l.id === a.levelId)?.order || 0,
+        timestamp: a.timestamp,
+        isCorrect: a.isCorrect,
+        ip: a.ip
+      }));
+
+    setAiLoading(true);
+    try {
+      const result = await detectSuspiciousActivity({
+        teamId,
+        currentLevel: team.currentLevel,
+        flagCount: team.flagCount,
+        penaltyUntil: team.penaltyUntil,
+        recentAttempts
+      });
+
+      toast({
+        title: result.isSuspicious ? "Suspicious Activity Detected" : "Audit Passed",
+        description: result.reason,
+        variant: result.isSuspicious ? "destructive" : "default"
+      });
+    } catch (err) {
+      toast({ variant: "destructive", title: "Audit Error", description: "Failed to run AI audit." });
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const handleFlagTeam = async (teamId: string) => {
     if (!db) return;
-    localApi.flagTeam(db, teamId, "Manual Admin Flag");
+    await localApi.flagTeam(db, teamId, "Manual Admin Flag");
     toast({
       title: "Protocol Violation Logged",
       description: "Team has been flagged for manual review.",
     });
   };
 
-  const handleApplyPenalty = (teamId: string, mins: number) => {
+  const handleApplyPenalty = async (teamId: string, mins: number) => {
     if (isNaN(mins) || !db) return;
-    localApi.applyPenalty(db, teamId, mins);
+    await localApi.applyPenalty(db, teamId, mins);
     toast({
       title: "Terminal Lockout Active",
       description: `Target terminal has been suppressed for ${mins} minutes.`,
     });
   };
 
-  const handleRemovePenalty = (teamId: string) => {
+  const handleRemovePenalty = async (teamId: string) => {
     if (!db) return;
-    localApi.removePenalty(db, teamId);
+    await localApi.removePenalty(db, teamId);
     toast({
       title: "Lockout Lifted",
       description: "Terminal communication restored.",
@@ -219,14 +283,27 @@ export default function AdminDashboard() {
                 </div>
                 <div className="flex items-center gap-4">
                   <Badge variant="outline" className="border-white/10 text-[10px] px-3 font-mono text-primary">LVL {team.currentLevel}</Badge>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    onClick={() => handleFlagTeam(team.id)}
-                    className="text-white/20 hover:text-destructive"
-                  >
-                    <Flag className="w-4 h-4" />
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={() => handleAuditTeam(team.id)}
+                      disabled={aiLoading}
+                      className="text-white/20 hover:text-primary"
+                      title="AI Security Audit"
+                    >
+                      <BrainCircuit className="w-4 h-4" />
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={() => handleFlagTeam(team.id)}
+                      className="text-white/20 hover:text-destructive"
+                      title="Manual Flag"
+                    >
+                      <Flag className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -241,8 +318,19 @@ export default function AdminDashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-primary/70">Manual Signal Injection</p>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-primary/70">Signal Injection</p>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={handleAiGenerateHint}
+                  disabled={aiLoading || !selectedLevelId}
+                  className="h-6 text-[9px] gap-1 text-primary hover:text-primary/80"
+                >
+                  <Sparkles className="w-3 h-3" /> AI GENERATE
+                </Button>
+              </div>
               <select 
                 value={selectedLevelId} 
                 onChange={(e) => setSelectedLevelId(e.target.value)}
@@ -292,7 +380,17 @@ export default function AdminDashboard() {
                     </div>
                   </div>
                 </div>
-                <TeamPenaltyDialog team={team} onApply={handleApplyPenalty} />
+                <div className="flex items-center gap-2">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => handleAuditTeam(team.id)}
+                    className="text-[9px] uppercase tracking-widest font-bold text-primary"
+                  >
+                    AUDIT
+                  </Button>
+                  <TeamPenaltyDialog team={team} onApply={handleApplyPenalty} />
+                </div>
               </div>
             ))}
             {flaggedTeams.length === 0 && (
