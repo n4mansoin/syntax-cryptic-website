@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
@@ -87,7 +88,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const teamId = userCredential.user.uid;
       
-      // Ensure team document exists with the UID as the ID
       const teamRef = doc(db, 'teams', teamId);
       const teamSnap = await getDoc(teamRef);
       if (!teamSnap.exists()) {

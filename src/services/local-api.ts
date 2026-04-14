@@ -1,3 +1,4 @@
+
 'use client';
 
 import { ATTEMPT_LIMIT_PER_MINUTE } from '@/utils/constants';
@@ -36,7 +37,7 @@ export const localApi = {
       return { success: false, message: "Terminal Signal Suppressed." };
     }
 
-    // 3. Rate Limiting (Using state for historical attempts is fine)
+    // 3. Rate Limiting
     const oneMinuteAgo = new Date(now.getTime() - 60000);
     const recentAttempts = state.attempts.filter(a => a.teamId === teamId && new Date(a.timestamp) > oneMinuteAgo);
 
@@ -45,7 +46,7 @@ export const localApi = {
       return { success: false, message: "Protocol Violation: Signal Flood Detected.", flagged: true };
     }
 
-    // 4. Verification Logic
+    // 4. Verification Logic (Source of Truth Comparison)
     const normalizedInput = userInput.trim().toLowerCase();
     const validAnswers = (level.correctAnswer || "")
       .toLowerCase()
@@ -55,7 +56,7 @@ export const localApi = {
 
     const isCorrect = validAnswers.includes(normalizedInput);
 
-    // 5. Cloud Mutation - Correct sub-collection path
+    // 5. Cloud Mutation
     const attemptRef = doc(collection(db, 'teams', teamId, 'attempts'));
     const attemptData = {
       id: attemptRef.id,

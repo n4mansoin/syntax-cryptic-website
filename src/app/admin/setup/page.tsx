@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -31,7 +32,7 @@ export default function AdminSetupPage() {
     
     setLoading(true);
     try {
-      // 1. Establish administrative identity in a separate write
+      // 1. Establish administrative identity in a separate write to bypass batch restrictions
       const adminRoleRef = doc(db, 'admin_roles', user.uid);
       await setDoc(adminRoleRef, { 
         username: 'admin', 
@@ -39,7 +40,7 @@ export default function AdminSetupPage() {
         bootstrappedAt: new Date().toISOString()
       }, { merge: true });
 
-      // 2. Synchronize levels (teams are now handled dynamically on login)
+      // 2. Synchronize levels and metadata
       const batch = writeBatch(db);
 
       initialLevels.forEach((level: any) => {
@@ -82,8 +83,10 @@ export default function AdminSetupPage() {
         <CardContent>
           {done ? (
             <div className="flex flex-col items-center gap-4 py-4">
-              <CheckCircle2 className="w-12 h-12 text-green-500 animate-scale-up" />
-              <p className="text-sm text-center text-muted-foreground font-mono uppercase">Sync Persistent // Node Active</p>
+              <div className="flex flex-col items-center gap-4">
+                <CheckCircle2 className="w-12 h-12 text-green-500 animate-scale-up" />
+                <p className="text-sm text-center text-muted-foreground font-mono uppercase">Sync Persistent // Node Active</p>
+              </div>
               <Button onClick={() => window.location.href = '/admin/dashboard'} className="w-full font-bold uppercase tracking-widest">ENTER DASHBOARD</Button>
             </div>
           ) : (
