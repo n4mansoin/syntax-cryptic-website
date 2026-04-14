@@ -1,8 +1,9 @@
+
 'use client';
 
 import { normalizeAnswer, generateAnswerHash } from '@/utils/hash';
 import { SECRET_KEY, ATTEMPT_LIMIT_PER_MINUTE, FLAGS_UNTIL_PENALTY, PENALTY_DURATION_MINUTES } from '@/utils/constants';
-import { StoreState, Attempt, Flag, Team } from '@/lib/local-store';
+import { StoreState, Attempt, Flag } from '@/lib/local-store';
 
 export const localApi = {
   async submitAnswer(teamId: string, levelId: string, userInput: string, state: StoreState, updateStore: (updater: (prev: StoreState) => StoreState) => void) {
@@ -21,7 +22,7 @@ export const localApi = {
     const recentAttempts = state.attempts.filter(a => a.teamId === teamId && new Date(a.timestamp) > oneMinuteAgo);
 
     if (recentAttempts.length >= ATTEMPT_LIMIT_PER_MINUTE) {
-      this.flagTeam(teamId, "Rate Limit Breach: High-frequency attempts", updateStore);
+      this.flagTeam(teamId, "Rate Limit Breach: Signal Flood", updateStore);
       return { success: false, message: "Protocol Violation: Signal Flood Detected.", flagged: true };
     }
 
@@ -30,7 +31,7 @@ export const localApi = {
     if (!level) return { success: false, message: "Signal synchronization failed." };
 
     const inputHash = await generateAnswerHash(userInput, level.salt, SECRET_KEY);
-    const isCorrect = inputHash === level.answerHash;
+    const isCorrect = level.answerHashes.includes(inputHash);
 
     // 4. Update Store (Atomic update)
     updateStore(prev => {
@@ -51,7 +52,8 @@ export const localApi = {
         next.teams = next.teams.map(t => t.id === teamId ? {
           ...t,
           currentLevel: t.currentLevel + 1,
-          lastSolvedAt: now.toISOString()
+          lastSolvedAt: now.toISOString(),
+          flagCount: 0 // Reset flags on correct solve
         } : t);
       }
 
@@ -95,8 +97,29 @@ export const localApi = {
     });
   },
 
-  releaseHint(levelId: string, hintText: string, updateStore: (updater: (prev: StoreState) => StoreState) => void) {
-    updateStore(prev => {
+  applyPenalty(teamId: string, mins: number, { state, updateStore }: any) {
+    const now = new Date();
+    updateStore((prev: any) => ({
+      ...prev,
+      teams: prev.teams.map((t: any) => t.id === teamId ? {
+        ...t,
+        penaltyUntil: new Date(now.getTime() + mins * 60000).toISOString()
+      } : t)
+    }));
+  },
+
+  removePenalty(teamId: string, { state, updateStore }: any) {
+    updateStore((prev: any) => ({
+      ...prev,
+      teams: prev.teams.map((t: any) => t.id === teamId ? {
+        ...t,
+        penaltyUntil: null
+      } : t)
+    }));
+  },
+
+  releaseHint(levelId: string, hintText: string, { state, updateStore }: any) {
+    updateStore((prev: any) => {
       const next = { ...prev };
       const newHint = {
         id: Math.random().toString(36).substr(2, 9),

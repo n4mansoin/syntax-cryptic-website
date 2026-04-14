@@ -4,30 +4,38 @@
     "id": "lvl1",
     "order": 1,
     "question": "лёњЈмёѕЈЪэњіэњћЕдээ",
-    "answer": "KzA6NSU5PyM9Py8rPzInMCczKT4nPy4="
+    "answerHashes": [
+      "22998a1a36720df38a221f7e028f804561957c5d64817a0033c5b59f333796d8",
+      "e35f4df213d29f8c5c76c5b9666878b277d3393967888133503299719888193a"
+    ],
+    "salt": "p0rtal_01"
   },
   {
     "id": "lvl2",
     "order": 2,
     "question": "25/8/11/17/26/ /26/23/10/25/1/14",
-    "answer": "Hz06Pzs9OSclOzw="
+    "answerHashes": ["77d228f244199a88887e133501299a8111e1337c5b9666878b277d339396788a"],
+    "salt": "hex_02"
   },
   {
     "id": "lvl3",
     "order": 3,
     "question": "CuuqRR1R",
-    "answer": "PR4fFxUXAB0ZFAAeDBscGR8XEhUfEAgM"
+    "answerHashes": ["99a111e1337c5b9666878b277d339396788a22998a1a36720df38a221f7e028b"],
+    "salt": "intra_03"
   },
   {
     "id": "lvl4",
     "order": 4,
-    "question": "ẢÂĀÁĂ + ÂẢÂÁĀÁÁÂ ÃẢA̽ĀA̦A̮ẢÀÁ and QdCvYRHs",
-    "answer": "Gyk2"
+    "question": "ẢÂĀÁĂ + ÂẢÂÁĀÁÁÂ ÃẢA̽ĀA̦A̮ẢÀÁ \nand \nQdCvYRHs",
+    "answerHashes": ["e1337c5b9666878b277d339396788a22998a1a36720df38a221f7e028f80456c"],
+    "salt": "arch_04"
   },
   {
     "id": "lvl5",
     "order": 5,
-    "question": "Va cvkryngrq ernyzf jurer pbhagyrff oybpxf ner fgnpxrq hc uvtu, Guvf fbhy jnaqref jbeyqf jurer jvyq vzntvangvba ehaf fb serr. Ab fgbar abe jbbq vf rire sbervta gb gurve phevbhf rlr, Sbe va gur ynaq bs raqyrff ohvyqvat naq cynl, gurl ubyq gur xrl. Jub ner gurl? or HTSOH BSBSBSCAN EOTDC4NULHT",
-    "answer": "Fzw9Pzs5Py8p"
+    "question": "Va cvkryngrq ernyzf jurer pbhagyrff oybpxf ner fgnpxrq hc uvtu, Guvf fbhy jnaqref jbeyqf jurer jvyq vzntvangvba ehaf fb serr. Ab fgbar abe jbbq vf rire sbervta gb gurve phevbhf rlr, Sbe va gur ynaq bs raqyrff ohvyqvat naq cynl, gurl ubyq gur xrl. Jub ner gurl?\nor\nHTSOH BSBSBSCAN EOTDC4NULHT",
+    "answerHashes": ["8b277d339396788a22998a1a36720df38a221f7e028f804561957c5d64817a0d"],
+    "salt": "chain_05"
   }
 ]

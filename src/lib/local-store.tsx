@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
@@ -18,7 +19,7 @@ export interface Level {
   id: string;
   order: number;
   question: string;
-  answerHash: string;
+  answerHashes: string[];
   salt: string;
 }
 
@@ -61,8 +62,8 @@ interface StoreContextType {
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
-const STORAGE_KEY = 'cryptic_store_v10';
-const SYNC_CHANNEL_NAME = 'cryptic-sync-v10';
+const STORAGE_KEY = 'cryptic_store_v11';
+const SYNC_CHANNEL_NAME = 'cryptic-sync-v11';
 
 export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
   const [state, setState] = useState<StoreState>({
@@ -82,7 +83,7 @@ export function RealtimeSyncEngine({ children }: { children: ReactNode }) {
     if (stored) {
       try {
         newState = JSON.parse(stored);
-        // Ensure levels are always fresh from JSON but maintain their order
+        // Ensure levels are always up to date with the latest questions from JSON
         newState.levels = initialLevels as Level[];
       } catch (e) {
         newState = {
