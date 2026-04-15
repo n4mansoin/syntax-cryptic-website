@@ -65,8 +65,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (teamName: string, passwordPlain: string) => {
     if (!firebaseAuth || !db) return false;
-    const normalizedName = teamName.trim().toLowerCase();
-    const email = `${normalizedName}@intra-syntax.com`;
+    
+    // Normalize: remove leading/trailing spaces, lowercase, and remove internal spaces for the email only
+    const normalizedNameForEmail = teamName.trim().toLowerCase().replace(/\s+/g, '');
+    const email = `${normalizedNameForEmail}@intra-syntax.com`;
     const password = passwordPlain.trim();
 
     try {
@@ -74,6 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         userCredential = await signInWithEmailAndPassword(firebaseAuth, email, password);
       } catch (err: any) {
+        // Modern Firebase projects often return 'invalid-credential' for non-existent users
         if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential' || err.code === 'auth/invalid-email') {
           userCredential = await createUserWithEmailAndPassword(firebaseAuth, email, password);
         } else {
@@ -87,7 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       if (!teamSnap.exists()) {
         await setDoc(teamRef, {
-          teamName,
+          teamName: teamName.trim(),
           currentLevel: 1,
           flagCount: 0,
           penaltyUntil: null,
@@ -95,7 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
       }
 
-      const newState: AuthState = { userType: 'team', teamId, teamName, adminId: null };
+      const newState: AuthState = { userType: 'team', teamId, teamName: teamName.trim(), adminId: null };
       setAuth(newState);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(newState));
       return true;
@@ -107,7 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loginAdmin = async (username: string, passwordPlain: string) => {
     if (!firebaseAuth || !db) return false;
-    const email = `${username.toLowerCase()}@intra-syntax.com`;
+    const email = `${username.toLowerCase().trim().replace(/\s+/g, '')}@intra-syntax.com`;
     const password = passwordPlain.trim();
 
     try {
