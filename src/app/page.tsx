@@ -1,29 +1,22 @@
+
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Countdown } from '@/components/Countdown';
 import { Navbar } from '@/components/Navbar';
 import { SpiralAnimation } from "@/components/ui/spiral-animation";
 import { useAuth } from '@/lib/auth-store';
 import { useRouter } from 'next/navigation';
+import { getHuntDates } from '@/utils/constants';
 
 export default function Home() {
   const { auth } = useAuth();
   const router = useRouter();
-  const [huntStartTime, setHuntStartTime] = useState<Date | null>(null);
-  const [huntEndTime, setHuntEndTime] = useState<Date | null>(null);
   const [startVisible, setStartVisible] = useState(false);
 
-  useEffect(() => {
-    // Target Start: 14th April 2026, 6:00 PM IST (UTC+5:30)
-    // 6:00 PM IST is 12:30 PM UTC
-    const start = new Date('2026-04-14T12:30:00Z');
-    // Hunt ends 48 hours after it starts
-    const end = new Date(start.getTime() + 48 * 60 * 60 * 1000);
-    
-    setHuntStartTime(start);
-    setHuntEndTime(end);
+  const { start: huntStartTime, end: huntEndTime } = useMemo(() => getHuntDates(), []);
 
+  useEffect(() => {
     const timer = setTimeout(() => {
       setStartVisible(true);
     }, 1000);
@@ -32,10 +25,15 @@ export default function Home() {
   }, []);
 
   const handleEnter = () => {
-    if (auth.userType === 'team') {
-      router.push('/hunt');
-    } else if (auth.userType === 'admin') {
+    const now = new Date();
+    const huntEnded = now > huntEndTime;
+
+    if (auth.userType === 'admin') {
       router.push('/admin/dashboard');
+    } else if (huntEnded) {
+      router.push('/leaderboard');
+    } else if (auth.userType === 'team') {
+      router.push('/hunt');
     } else {
       router.push('/login');
     }
@@ -78,12 +76,12 @@ export default function Home() {
             bg-transparent border-none outline-none
           "
         >
-          START
+          {new Date() > huntEndTime ? 'RANKINGS' : 'START'}
         </button>
       </div>
 
       <footer className="absolute bottom-8 left-0 right-0 text-center pointer-events-none opacity-30">
-        <p className="text-white/20 text-xs font-mono">v1.0.4-stable // high-frequency signal node</p>
+        <p className="text-white/20 text-xs font-mono">v1.0.5-stable // high-frequency signal node</p>
       </footer>
     </div>
   );

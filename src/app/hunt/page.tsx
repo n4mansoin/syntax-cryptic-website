@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -13,6 +14,7 @@ import { useAuth } from '@/lib/auth-store';
 import { useStore } from '@/lib/local-store';
 import { localApi } from '@/services/local-api';
 import { useFirestore } from '@/firebase';
+import { getHuntDates } from '@/utils/constants';
 
 export default function HuntPage() {
   const db = useFirestore();
@@ -26,16 +28,27 @@ export default function HuntPage() {
   const [levelTimer, setLevelTimer] = useState(0);
   const [penaltyTimeLeft, setPenaltyTimeLeft] = useState<string | null>(null);
 
+  const { end: huntEndTime } = useMemo(() => getHuntDates(), []);
+
   // Strict Redirection Guard
   useEffect(() => {
     if (!authLoading) {
+      const now = new Date();
+      const huntEnded = now > huntEndTime;
+
       if (auth.userType === 'admin') {
         router.push('/admin/dashboard');
       } else if (!auth.teamId) {
         router.push('/login');
+      } else if (huntEnded) {
+        toast({ 
+          title: "Protocol Terminated", 
+          description: "The hunt has concluded. Accessing final archives.",
+        });
+        router.push('/leaderboard');
       }
     }
-  }, [auth, authLoading, router]);
+  }, [auth, authLoading, router, huntEndTime, toast]);
 
   const teamData = useMemo(() => state.teams.find(t => t.id === auth.teamId), [state.teams, auth.teamId]);
   const currentLevelNumber = teamData?.currentLevel || 1;
@@ -85,6 +98,13 @@ export default function HuntPage() {
     e.preventDefault();
     if (!answer.trim() || !auth.teamId || !currentLevel || penaltyTimeLeft || !db) return;
     
+    // Final check before submission to prevent late entries
+    if (new Date() > huntEndTime) {
+      toast({ variant: "destructive", title: "Time Expired", description: "The hunt has ended. Submissions are closed." });
+      router.push('/leaderboard');
+      return;
+    }
+
     setSubmitting(true);
     const result = await localApi.submitAnswer(db, auth.teamId, currentLevel.id, answer, state);
 
